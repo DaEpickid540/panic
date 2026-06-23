@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+
+  <title>Panic Arena</title>
+
+  <!-- PWA meta -->
+  <meta name="application-name" content="Panic Arena" />
+  <meta name="description" content="Multiplayer horror arena — Hunter vs Hunted vs Ghosts." />
+  <meta name="theme-color" content="#CC0000" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Panic" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <link rel="icon" type="image/png" href="icons/icon-192.png" />
+
+  <style>
+    :root { --bg: #1a1a1a; --accent: #CC0000; }
+    html, body {
+      margin: 0; padding: 0; height: 100%; overflow: hidden;
+      background: var(--bg); color: #e6e6e6;
+      font-family: "Space Mono", monospace;
+      touch-action: none;
+    }
+    #canvas {
+      display: block; width: 100%; height: 100%;
+      border: 0; outline: none;
+    }
+    #status {
+      position: fixed; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      background: var(--bg); z-index: 10;
+    }
+    #status h1 {
+      font-family: "Orbitron", monospace;
+      color: var(--accent); letter-spacing: 4px; margin: 0 0 24px;
+    }
+    #bar { width: 60%; max-width: 360px; height: 6px; background: #333; border-radius: 3px; }
+    #bar > div { height: 100%; width: 0%; background: var(--accent); border-radius: 3px; transition: width .2s; }
+  </style>
+</head>
+<body>
+  <canvas id="canvas">Your browser does not support the canvas tag.</canvas>
+
+  <div id="status">
+    <h1>PANIC: ARENA</h1>
+    <div id="bar"><div id="bar-fill"></div></div>
+    <p id="status-text">Loading…</p>
+  </div>
+
+  <!-- Firebase JS SDK (compat build) — exposes window.firebase to GDScript
+       via JavaScriptBridge in the browser export. -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script>
+    // Replace with your project's config (see scripts/FirebaseManager.gd).
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "panic-game.firebaseapp.com",
+      databaseURL: "https://panic-game-default-rtdb.firebaseio.com",
+      projectId: "panic-game",
+      storageBucket: "panic-game.appspot.com",
+      messagingSenderId: "YOUR_SENDER_ID",
+      appId: "YOUR_APP_ID"
+    };
+    firebase.initializeApp(firebaseConfig);
+    firebase.auth().signInAnonymously().catch(console.error);
+  </script>
+
+  <!-- Godot engine loader. The export step produces index.js / index.wasm /
+       index.pck next to this file; keep the export name as "index". -->
+  <script src="index.js"></script>
+  <script>
+    const statusEl = document.getElementById("status");
+    const statusText = document.getElementById("status-text");
+    const barFill = document.getElementById("bar-fill");
+
+    const engine = new Engine({
+      canvas: document.getElementById("canvas"),
+      executable: "index",
+      mainPack: "index.pck",
+    });
+
+    engine.startGame({
+      onProgress: (current, total) => {
+        if (total > 0) barFill.style.width = (current / total * 100) + "%";
+      },
+    }).then(() => {
+      statusEl.style.display = "none";
+    }).catch((err) => {
+      statusText.textContent = "Failed to load: " + err;
+    });
+
+    // Register the PWA service worker.
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("service-worker.js").catch(console.error);
+      });
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+[gd_scene format=3 uid="uid://cpanicmaplab"]
+
+[ext_resource type="Script" path="res://scripts/MapBase.gd" id="1_map"]
+
+[node name="Lab" type="Node3D"]
+script = ExtResource("1_map")
+style = 10
+ground_color = Color(0.85, 0.85, 0.88, 1)
+obstacle_color = Color(0.80, 0.82, 0.85, 1)
+seed_value = 7777

@@ -1,0 +1,69 @@
+[gd_scene load_steps=15 format=3 uid="uid://cpanicmain001"]
+
+[ext_resource type="Script" path="res://scripts/Main.gd" id="1_main"]
+[ext_resource type="Script" path="res://scripts/GameController.gd" id="2_gc"]
+[ext_resource type="Script" path="res://scripts/PlayerSpawner.gd" id="3_spawn"]
+[ext_resource type="Script" path="res://scripts/PositionSync.gd" id="4_pos"]
+[ext_resource type="Script" path="res://scripts/ProximityDetector.gd" id="5_prox"]
+[ext_resource type="Script" path="res://scripts/GhostController.gd" id="6_ghost"]
+[ext_resource type="Script" path="res://scripts/EndCondition.gd" id="7_end"]
+[ext_resource type="Script" path="res://scripts/ReviveController.gd" id="14_revive"]
+[ext_resource type="Script" path="res://scripts/UIManager.gd" id="8_uimgr"]
+[ext_resource type="PackedScene" uid="uid://cpaniclobbyui" path="res://scenes/LobbyUI.tscn" id="9_lobby"]
+[ext_resource type="PackedScene" uid="uid://cpaniccountui" path="res://scenes/CountdownUI.tscn" id="10_count"]
+[ext_resource type="PackedScene" uid="uid://cpanichuntui" path="res://scenes/HuntingUI.tscn" id="11_hunt"]
+[ext_resource type="PackedScene" uid="uid://cpanicendui" path="res://scenes/EndUI.tscn" id="12_end"]
+[ext_resource type="PackedScene" uid="uid://cpanicpause01" path="res://scenes/PauseMenu.tscn" id="13_pause"]
+
+[node name="Main" type="Node"]
+script = ExtResource("1_main")
+
+[node name="World" type="Node3D" parent="." groups=["game_controller"]]
+script = ExtResource("2_gc")
+
+[node name="MapRoot" type="Node3D" parent="World"]
+
+[node name="PlayerSpawner" type="Node3D" parent="World"]
+script = ExtResource("3_spawn")
+
+[node name="PositionSync" type="Node" parent="World"]
+script = ExtResource("4_pos")
+
+[node name="ProximityDetector" type="Node" parent="World"]
+script = ExtResource("5_prox")
+
+[node name="GhostController" type="Node" parent="World"]
+script = ExtResource("6_ghost")
+
+[node name="EndCondition" type="Node" parent="World"]
+script = ExtResource("7_end")
+
+[node name="ReviveController" type="Node" parent="World"]
+script = ExtResource("14_revive")
+
+[node name="UI" type="CanvasLayer" parent="."]
+
+[node name="UIManager" type="Control" parent="UI"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+script = ExtResource("8_uimgr")
+
+[node name="LobbyUI" parent="UI/UIManager" instance=ExtResource("9_lobby")]
+layout_mode = 1
+
+[node name="CountdownUI" parent="UI/UIManager" instance=ExtResource("10_count")]
+layout_mode = 1
+visible = false
+
+[node name="HuntingUI" parent="UI/UIManager" instance=ExtResource("11_hunt")]
+layout_mode = 1
+visible = false
+
+[node name="EndUI" parent="UI/UIManager" instance=ExtResource("12_end")]
+layout_mode = 1
+visible = false
+
+[node name="PauseMenu" parent="UI" instance=ExtResource("13_pause")]

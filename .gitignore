@@ -1,0 +1,25 @@
+# Godot 4
+.godot/
+*.import
+export/
+*.tmp
+
+# Firebase
+firebase/functions/node_modules/
+firebase/.firebase/
+firebase-debug.log
+firebase-config.json
+
+# Secrets — never commit real credentials
+firebase_config.json
+
+# Build output
+build/
+public/
+
+# Claude Code
+.agents/
+
+# OS
+.DS_Store
+Thumbs.db

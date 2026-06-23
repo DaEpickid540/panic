@@ -1,0 +1,35 @@
+{
+  "rules": {
+    "games": {
+      "$gameId": {
+        ".read": "auth != null",
+        ".write": "auth != null",
+        "phase": {
+          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3"
+        },
+        "timeRemaining": {
+          ".validate": "newData.isNumber()"
+        },
+        "playerRoles": {
+          ".read": "auth != null",
+          "$peerId": {
+            ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 2"
+          }
+        },
+        "positions": {
+          "$peerId": {
+            ".validate": "newData.hasChildren(['p'])",
+            "p": { ".validate": "newData.hasChildren()" },
+            "r": { ".validate": "newData.isNumber()" },
+            "role": { ".validate": "newData.isNumber()" },
+            "t": { ".validate": "newData.isNumber()" }
+          }
+        },
+        "captures": { ".read": "auth != null" },
+        "grabs": { ".read": "auth != null" },
+        "reveals": { ".read": "auth != null" },
+        "election": { ".read": "auth != null" }
+      }
+    }
+  }
+}

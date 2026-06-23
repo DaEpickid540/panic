@@ -1,0 +1,10 @@
+[gd_scene format=3 uid="uid://crq1c84kiv7ej"]
+
+[ext_resource type="Script" path="res://scripts/MapBase.gd" id="1_map"]
+
+[node name="Dungeon" type="Node3D"]
+script = ExtResource("1_map")
+style = 7
+ground_color = Color(0.18, 0.16, 0.14, 1)
+obstacle_color = Color(0.3, 0.28, 0.25, 1)
+seed_value = 9111

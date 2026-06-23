@@ -1,0 +1,328 @@
+[gd_scene load_steps=6 format=3 uid="uid://cpanichuntui"]
+
+[ext_resource type="Script" path="res://scripts/HuntingUI.gd" id="1_hunt"]
+[ext_resource type="Theme" uid="uid://bpanictheme01" path="res://assets/panic_theme.tres" id="2_theme"]
+[ext_resource type="Script" path="res://scripts/MiniMap.gd" id="3_minimap"]
+[ext_resource type="PackedScene" uid="uid://cpanicjoystick1" path="res://scenes/VirtualJoystick.tscn" id="4_joy"]
+[ext_resource type="Texture2D" path="res://assets/textures/jumpscare.png" id="5_scare"]
+
+[node name="HuntingUI" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+theme = ExtResource("2_theme")
+script = ExtResource("1_hunt")
+
+[node name="Vignette" type="ColorRect" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+color = Color(1, 1, 1, 1)
+
+[node name="TopBar" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+
+[node name="RoleLabel" type="Label" parent="TopBar"]
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 0.0
+offset_left = 28.0
+offset_top = 22.0
+offset_right = 360.0
+offset_bottom = 62.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.85, 0.08, 0.08, 1)
+theme_override_font_sizes/font_size = 30
+text = "ROLE"
+
+[node name="TimerLabel" type="Label" parent="TopBar"]
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -90.0
+offset_top = 18.0
+offset_right = 90.0
+offset_bottom = 70.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.92, 0.86, 0.86, 1)
+theme_override_font_sizes/font_size = 44
+text = "05:00"
+horizontal_alignment = 1
+
+[node name="TimerBar" type="ProgressBar" parent="TopBar"]
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -90.0
+offset_top = 72.0
+offset_right = 90.0
+offset_bottom = 80.0
+mouse_filter = 2
+max_value = 1.0
+value = 1.0
+show_percentage = false
+
+[node name="MiniMap" type="Control" parent="."]
+custom_minimum_size = Vector2(150, 150)
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -182.0
+offset_top = 20.0
+offset_right = -20.0
+offset_bottom = 182.0
+mouse_filter = 2
+script = ExtResource("3_minimap")
+
+[node name="GripBanner" type="Label" parent="."]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -260.0
+offset_top = -160.0
+offset_right = 260.0
+offset_bottom = -100.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.85, 0.08, 0.08, 1)
+theme_override_font_sizes/font_size = 40
+text = "GRABBED — RUN!"
+horizontal_alignment = 1
+
+[node name="Crosshair" type="Label" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -16.0
+offset_top = -20.0
+offset_right = 16.0
+offset_bottom = 20.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.85, 0.08, 0.08, 0.8)
+theme_override_font_sizes/font_size = 30
+text = "+"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="DashLabel" type="Label" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 28.0
+offset_top = -134.0
+offset_right = 240.0
+offset_bottom = -114.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.7, 0.45, 0.45, 1)
+theme_override_font_sizes/font_size = 14
+text = "DASH"
+
+[node name="DashBar" type="ProgressBar" parent="."]
+visible = false
+custom_minimum_size = Vector2(160, 14)
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 28.0
+offset_top = -114.0
+offset_right = 188.0
+offset_bottom = -100.0
+mouse_filter = 2
+max_value = 1.0
+value = 1.0
+show_percentage = false
+
+[node name="ThrowLabel" type="Label" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 28.0
+offset_top = -172.0
+offset_right = 240.0
+offset_bottom = -152.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.85, 0.18, 0.18, 1)
+theme_override_font_sizes/font_size = 14
+text = "THROW"
+
+[node name="ThrowBar" type="ProgressBar" parent="."]
+visible = false
+custom_minimum_size = Vector2(160, 14)
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 28.0
+offset_top = -152.0
+offset_right = 188.0
+offset_bottom = -138.0
+mouse_filter = 2
+max_value = 1.0
+value = 1.0
+show_percentage = false
+
+[node name="BatteryLabel" type="Label" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 28.0
+offset_top = -92.0
+offset_right = 240.0
+offset_bottom = -72.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.95, 0.75, 0.2, 1)
+theme_override_font_sizes/font_size = 14
+text = "FLASHLIGHT"
+
+[node name="BatteryBar" type="ProgressBar" parent="."]
+visible = false
+custom_minimum_size = Vector2(200, 14)
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 28.0
+offset_top = -72.0
+offset_right = 228.0
+offset_bottom = -58.0
+mouse_filter = 2
+max_value = 1.0
+value = 1.0
+show_percentage = false
+
+[node name="StaminaLabel" type="Label" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 28.0
+offset_top = -132.0
+offset_right = 240.0
+offset_bottom = -112.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.45, 0.7, 0.42, 1)
+theme_override_font_sizes/font_size = 14
+text = "STAMINA"
+
+[node name="StaminaBar" type="ProgressBar" parent="."]
+visible = false
+custom_minimum_size = Vector2(200, 14)
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 28.0
+offset_top = -112.0
+offset_right = 228.0
+offset_bottom = -98.0
+mouse_filter = 2
+max_value = 1.0
+value = 1.0
+show_percentage = false
+
+[node name="ControlsHint" type="Label" parent="."]
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 28.0
+offset_top = -44.0
+offset_right = 600.0
+offset_bottom = -16.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.5, 0.42, 0.42, 1)
+theme_override_font_sizes/font_size = 16
+text = "WASD move   ·   Mouse look   ·   LMB capture   ·   F flashlight   ·   E grab"
+
+[node name="VirtualJoystick" parent="." instance=ExtResource("4_joy")]
+
+[node name="MobileButtons" type="HBoxContainer" parent="."]
+visible = false
+layout_mode = 1
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -560.0
+offset_top = -200.0
+offset_right = -16.0
+offset_bottom = -16.0
+mouse_filter = 2
+theme_override_constants/separation = 12
+
+[node name="FlashlightBtn" type="Button" parent="MobileButtons"]
+custom_minimum_size = Vector2(100, 100)
+layout_mode = 2
+size_flags_vertical = 8
+theme_override_font_sizes/font_size = 16
+text = "LIGHT
+(F)"
+
+[node name="JumpBtn" type="Button" parent="MobileButtons"]
+custom_minimum_size = Vector2(100, 100)
+layout_mode = 2
+size_flags_vertical = 8
+theme_override_font_sizes/font_size = 16
+text = "JUMP
+(▲)"
+
+[node name="SprintBtn" type="Button" parent="MobileButtons"]
+custom_minimum_size = Vector2(100, 100)
+layout_mode = 2
+size_flags_vertical = 8
+theme_override_font_sizes/font_size = 16
+text = "SPRINT
+(»)"
+
+[node name="DashBtn" type="Button" parent="MobileButtons"]
+custom_minimum_size = Vector2(100, 100)
+layout_mode = 2
+size_flags_vertical = 8
+theme_override_font_sizes/font_size = 16
+text = "DASH
+(⚡)"
+
+[node name="ThrowBtn" type="Button" parent="MobileButtons"]
+custom_minimum_size = Vector2(100, 100)
+layout_mode = 2
+size_flags_vertical = 8
+theme_override_font_sizes/font_size = 16
+text = "THROW
+(✕)"
+
+[node name="Jumpscare" type="TextureRect" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+texture = ExtResource("5_scare")
+expand_mode = 1
+stretch_mode = 6

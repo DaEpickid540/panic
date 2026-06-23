@@ -1,0 +1,10 @@
+[gd_scene format=3 uid="uid://cpanicmapcave"]
+
+[ext_resource type="Script" path="res://scripts/MapBase.gd" id="1_map"]
+
+[node name="Cave" type="Node3D"]
+script = ExtResource("1_map")
+style = 9
+ground_color = Color(0.28, 0.28, 0.32, 1)
+obstacle_color = Color(0.3, 0.3, 0.34, 1)
+seed_value = 6262

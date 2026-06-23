@@ -1,0 +1,10 @@
+[gd_scene load_steps=2 format=3 uid="uid://cpanicmapwhse"]
+
+[ext_resource type="Script" path="res://scripts/MapBase.gd" id="1_map"]
+
+[node name="Warehouse" type="Node3D"]
+script = ExtResource("1_map")
+style = 2
+ground_color = Color(0.28, 0.28, 0.30, 1)
+obstacle_color = Color(0.18, 0.20, 0.24, 1)
+seed_value = 3003

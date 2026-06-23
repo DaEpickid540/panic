@@ -1,0 +1,10 @@
+{
+  "_comment": "Copy this file to  firebase_config.json  (same folder) and fill in your Firebase project's web config. firebase_config.json is gitignored so your values stay out of source control. These are CLIENT config values (safe to ship) — the database is protected by Security Rules, not by hiding this.",
+  "apiKey": "AIzaSyXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+  "authDomain": "your-project.firebaseapp.com",
+  "databaseURL": "https://your-project-default-rtdb.firebaseio.com",
+  "projectId": "your-project",
+  "storageBucket": "your-project.appspot.com",
+  "messagingSenderId": "000000000000",
+  "appId": "1:000000000000:web:abcdef1234567890"
+}

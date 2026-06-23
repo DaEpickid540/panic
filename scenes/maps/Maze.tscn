@@ -1,0 +1,10 @@
+[gd_scene format=3 uid="uid://cpanicmapma0e"]
+
+[ext_resource type="Script" path="res://scripts/MapBase.gd" id="1_map"]
+
+[node name="Maze" type="Node3D"]
+script = ExtResource("1_map")
+style = 6
+ground_color = Color(0.32, 0.24, 0.2, 1)
+obstacle_color = Color(0.24, 0.18, 0.16, 1)
+seed_value = 4004

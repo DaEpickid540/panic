@@ -1,0 +1,72 @@
+[gd_scene load_steps=4 format=3 uid="uid://cpanicendui"]
+
+[ext_resource type="Script" path="res://scripts/EndUI.gd" id="1_end"]
+[ext_resource type="Theme" uid="uid://bpanictheme01" path="res://assets/panic_theme.tres" id="2_theme"]
+[ext_resource type="Texture2D" path="res://assets/textures/bg_blood.png" id="3_bg"]
+
+[node name="EndUI" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+theme = ExtResource("2_theme")
+script = ExtResource("1_end")
+
+[node name="Background" type="TextureRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+texture = ExtResource("3_bg")
+expand_mode = 1
+stretch_mode = 1
+
+[node name="Panel" type="PanelContainer" parent="."]
+custom_minimum_size = Vector2(560, 0)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -280.0
+offset_top = -220.0
+offset_right = 280.0
+offset_bottom = 220.0
+
+[node name="VBox" type="VBoxContainer" parent="Panel"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="Headline" type="Label" parent="Panel/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.85, 0.08, 0.08, 1)
+theme_override_font_sizes/font_size = 44
+text = "TIME'S UP"
+horizontal_alignment = 1
+
+[node name="Survivors" type="Label" parent="Panel/VBox"]
+layout_mode = 2
+text = "SURVIVORS: 0"
+horizontal_alignment = 1
+
+[node name="StatsHeader" type="Label" parent="Panel/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.5, 0.42, 0.42, 1)
+text = "NAME              ROLE      TIME    CAPS"
+
+[node name="StatsTable" type="ScrollContainer" parent="Panel/VBox"]
+custom_minimum_size = Vector2(0, 220)
+layout_mode = 2
+
+[node name="Rows" type="VBoxContainer" parent="Panel/VBox/StatsTable"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="PlayAgain" type="Button" parent="Panel/VBox"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+text = "BACK TO LOBBY"
+
+[connection signal="pressed" from="Panel/VBox/PlayAgain" to="." method="_on_play_again_pressed"]

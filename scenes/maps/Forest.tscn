@@ -1,0 +1,10 @@
+[gd_scene load_steps=2 format=3 uid="uid://cpanicmapforest"]
+
+[ext_resource type="Script" path="res://scripts/MapBase.gd" id="1_map"]
+
+[node name="Forest" type="Node3D"]
+script = ExtResource("1_map")
+style = 1
+ground_color = Color(0.24, 0.4, 0.22, 1)
+obstacle_color = Color(0.16, 0.22, 0.14, 1)
+seed_value = 2002

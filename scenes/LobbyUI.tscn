@@ -1,0 +1,251 @@
+[gd_scene load_steps=4 format=3 uid="uid://cpaniclobbyui"]
+
+[ext_resource type="Script" path="res://scripts/LobbyUI.gd" id="1_lobby"]
+[ext_resource type="Theme" uid="uid://bpanictheme01" path="res://assets/panic_theme.tres" id="2_theme"]
+[ext_resource type="Texture2D" path="res://assets/textures/bg_blood.png" id="3_bg"]
+
+[node name="LobbyUI" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+theme = ExtResource("2_theme")
+script = ExtResource("1_lobby")
+
+[node name="BG" type="TextureRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+texture = ExtResource("3_bg")
+expand_mode = 1
+stretch_mode = 1
+
+[node name="Header" type="HBoxContainer" parent="."]
+layout_mode = 1
+anchor_right = 1.0
+offset_left = 48.0
+offset_top = 20.0
+offset_right = -48.0
+offset_bottom = 100.0
+mouse_filter = 2
+
+[node name="Title" type="Label" parent="Header"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.85, 0.08, 0.08, 1)
+theme_override_font_sizes/font_size = 56
+text = "PANIC"
+
+[node name="Subtitle" type="Label" parent="Header"]
+layout_mode = 2
+size_flags_vertical = 8
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.5, 0.38, 0.38, 1)
+theme_override_font_sizes/font_size = 14
+text = "HUNT OR BE HAUNTED"
+
+[node name="Spacer" type="Control" parent="Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="NetStatus" type="Label" parent="Header"]
+layout_mode = 2
+size_flags_vertical = 4
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.3, 0.85, 0.4, 1)
+theme_override_font_sizes/font_size = 13
+text = "● ONLINE"
+
+[node name="Left" type="PanelContainer" parent="."]
+layout_mode = 1
+anchor_right = 0.38
+anchor_bottom = 1.0
+offset_left = 24.0
+offset_top = 108.0
+offset_right = -10.0
+offset_bottom = -80.0
+
+[node name="V" type="VBoxContainer" parent="Left"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="Head" type="HBoxContainer" parent="Left/V"]
+layout_mode = 2
+
+[node name="H" type="Label" parent="Left/V/Head"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.65, 0.12, 0.12, 1)
+theme_override_font_sizes/font_size = 13
+text = "PLAYERS"
+
+[node name="PlayerCount" type="Label" parent="Left/V/Head"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.65, 0.12, 0.12, 1)
+theme_override_font_sizes/font_size = 13
+text = "1"
+
+[node name="PlayerList" type="VBoxContainer" parent="Left/V"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="Right" type="PanelContainer" parent="."]
+layout_mode = 1
+anchor_left = 0.40
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 10.0
+offset_top = 108.0
+offset_right = -24.0
+offset_bottom = -80.0
+
+[node name="V" type="VBoxContainer" parent="Right"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="H" type="Label" parent="Right/V"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.65, 0.12, 0.12, 1)
+theme_override_font_sizes/font_size = 13
+text = "MATCH SETTINGS"
+
+[node name="MapLabel" type="Label" parent="Right/V"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.45, 0.38, 0.38, 1)
+theme_override_font_sizes/font_size = 11
+text = "MAP"
+
+[node name="MapGrid" type="GridContainer" parent="Right/V"]
+layout_mode = 2
+theme_override_constants/h_separation = 6
+theme_override_constants/v_separation = 6
+columns = 5
+
+[node name="WeaponLabel" type="Label" parent="Right/V"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.45, 0.38, 0.38, 1)
+theme_override_font_sizes/font_size = 11
+text = "WEAPON"
+
+[node name="WeaponGrid" type="GridContainer" parent="Right/V"]
+layout_mode = 2
+theme_override_constants/h_separation = 6
+theme_override_constants/v_separation = 6
+columns = 4
+
+[node name="TimerRow" type="HBoxContainer" parent="Right/V"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="TimerLabel" type="Label" parent="Right/V/TimerRow"]
+layout_mode = 2
+size_flags_vertical = 1
+theme_override_colors/font_color = Color(0.5, 0.42, 0.42, 1)
+theme_override_font_sizes/font_size = 12
+text = "ROUND"
+
+[node name="TimerSlider" type="HSlider" parent="Right/V/TimerRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+min_value = 3.0
+max_value = 10.0
+value = 5.0
+
+[node name="TimerValue" type="Label" parent="Right/V/TimerRow"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.85, 0.18, 0.18, 1)
+theme_override_font_sizes/font_size = 14
+text = "5 MIN"
+
+[node name="Sep" type="HSeparator" parent="Right/V"]
+layout_mode = 2
+
+[node name="ModeLabel" type="Label" parent="Right/V"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.45, 0.38, 0.38, 1)
+theme_override_font_sizes/font_size = 11
+text = "GAME MODE"
+
+[node name="ModeRow" type="HBoxContainer" parent="Right/V"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="StandardBtn" type="Button" parent="Right/V/ModeRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+toggle_mode = true
+button_pressed = true
+text = "STANDARD"
+
+[node name="ParkourBtn" type="Button" parent="Right/V/ModeRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+toggle_mode = true
+text = "PARKOUR"
+
+[node name="Bottom" type="HBoxContainer" parent="."]
+layout_mode = 1
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 24.0
+offset_top = -72.0
+offset_right = -24.0
+offset_bottom = -16.0
+theme_override_constants/separation = 12
+
+[node name="HostBtn" type="Button" parent="Bottom"]
+custom_minimum_size = Vector2(0, 48)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "HOST GAME"
+
+[node name="AddBotBtn" type="Button" parent="Bottom"]
+custom_minimum_size = Vector2(0, 48)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "ADD BOT"
+
+[node name="StartBtn" type="Button" parent="Bottom"]
+custom_minimum_size = Vector2(0, 48)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_stretch_ratio = 1.8
+theme_override_font_sizes/font_size = 22
+text = "START GAME"
+
+[node name="Footer" type="Label" parent="."]
+layout_mode = 1
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 48.0
+offset_top = -14.0
+offset_right = 400.0
+offset_bottom = 0.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.4, 0.34, 0.34, 1)
+theme_override_font_sizes/font_size = 11
+text = "[ESC] BACK"
+
+[node name="Version" type="Label" parent="."]
+layout_mode = 1
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -100.0
+offset_top = -14.0
+offset_right = -16.0
+offset_bottom = 0.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.4, 0.34, 0.34, 1)
+theme_override_font_sizes/font_size = 11
+text = "v1.0.0"
+horizontal_alignment = 2
+
+[connection signal="pressed" from="Bottom/HostBtn" to="." method="_on_host_pressed"]
+[connection signal="pressed" from="Bottom/AddBotBtn" to="." method="_on_add_bot_pressed"]
+[connection signal="pressed" from="Bottom/StartBtn" to="." method="_on_start_pressed"]
