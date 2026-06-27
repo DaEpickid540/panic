@@ -51,6 +51,9 @@ func _ready() -> void:
 	_menu_v.add_theme_constant_override("separation", 6)
 
 	var rv := $Right/V
+	var std_btn: Button = rv.get_node("ModeRow/StandardBtn")
+	var pkr_btn: Button = rv.get_node("ModeRow/ParkourBtn")
+	var inf_btn: Button = rv.get_node("ModeRow/InfectionBtn")
 	var rscroll := ScrollContainer.new()
 	rscroll.layout_mode = 2
 	rscroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -89,24 +92,21 @@ func _ready() -> void:
 	for b in _weapon_grid.get_children():
 		_host_controls.append(b)
 
-	var std_btn: Button = $"Right/V/ModeRow/StandardBtn"
-	var pkr_btn: Button = $"Right/V/ModeRow/ParkourBtn"
-	_host_controls.append(std_btn)
-	_host_controls.append(pkr_btn)
-	_apply_sel_style(std_btn, true)
-	_apply_sel_style(pkr_btn, false)
-	std_btn.pressed.connect(func():
-		GameManager.game_mode = GameManager.Mode.STANDARD
-		std_btn.button_pressed = true
-		pkr_btn.button_pressed = false
-		_apply_sel_style(std_btn, true)
-		_apply_sel_style(pkr_btn, false))
-	pkr_btn.pressed.connect(func():
-		GameManager.game_mode = GameManager.Mode.PARKOUR
-		std_btn.button_pressed = false
-		pkr_btn.button_pressed = true
-		_apply_sel_style(std_btn, false)
-		_apply_sel_style(pkr_btn, true))
+	var mode_btns: Array[Button] = [std_btn, pkr_btn, inf_btn]
+	var mode_vals: Array[int] = [
+		GameManager.Mode.STANDARD, GameManager.Mode.PARKOUR, GameManager.Mode.INFECTION]
+	for i in mode_btns.size():
+		var btn := mode_btns[i]
+		var mode_val: int = mode_vals[i]
+		_host_controls.append(btn)
+		_apply_sel_style(btn, GameManager.game_mode == mode_val)
+		btn.button_pressed = (GameManager.game_mode == mode_val)
+		btn.pressed.connect(func():
+			GameManager.game_mode = mode_val
+			for j in mode_btns.size():
+				var sel: bool = (mode_vals[j] == mode_val)
+				mode_btns[j].button_pressed = sel
+				_apply_sel_style(mode_btns[j], sel))
 
 
 func _process(delta: float) -> void:
@@ -468,6 +468,8 @@ func _on_lobby_settings(settings: Dictionary) -> void:
 		_timer_label.text = "%d MIN" % GameManager.round_minutes
 	if settings.has("killers"):
 		GameManager.killer_count = int(settings["killers"])
+	if settings.has("mode"):
+		GameManager.game_mode = int(settings["mode"])
 
 
 func _lock_for_joiner() -> void:

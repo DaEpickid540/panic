@@ -694,6 +694,7 @@ func _make_wall_text(pos: Vector3, text: String, color: Color, rot: Vector3) -> 
 	l.outline_size = 8
 	l.outline_modulate = Color(0, 0, 0, 0.6)
 	l.billboard = BaseMaterial3D.BILLBOARD_DISABLED
+	l.double_sided = true
 	l.no_depth_test = false
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -704,8 +705,8 @@ func _make_floor_note(pos: Vector3, text: String) -> void:
 	var holder := Node3D.new()
 	holder.position = pos
 	holder.set_script(load("res://scripts/Interactable.gd"))
-	holder.title = "DOCUMENT"
-	holder.body = text
+	holder.set("title", "DOCUMENT")
+	holder.set("body", text)
 	add_child(holder)
 	var paper := MeshInstance3D.new()
 	var pm := BoxMesh.new()
@@ -732,8 +733,8 @@ func _make_terminal(pos: Vector3, text: String) -> void:
 	var holder := Node3D.new()
 	holder.position = pos
 	holder.set_script(load("res://scripts/Interactable.gd"))
-	holder.title = "TERMINAL"
-	holder.body = text
+	holder.set("title", "TERMINAL")
+	holder.set("body", text)
 	add_child(holder)
 	_make_box(pos + Vector3(0, 0.3, 0), Vector3(0.8, 0.6, 0.1), Color(0.12, 0.12, 0.14), "metal")
 	var screen := MeshInstance3D.new()
@@ -977,109 +978,177 @@ func _make_cave_pool(pos: Vector3) -> void:
 
 func _build_lab_layout() -> void:
 	var h := _half
-	var white := Color(0.90, 0.90, 0.92)
+	var wh := WALL_HEIGHT * 0.5
+	var wy := WALL_HEIGHT * 0.25
+	var gray := Color(0.72, 0.72, 0.74)
 	var steel := Color(0.55, 0.58, 0.62)
-	var blood := Color(0.45, 0.04, 0.02)
+	var dw := 3.0  # doorway half-width
 
-	# ── MAIN CORRIDOR (north-south through center) ──
-	var corr_x := 0.0
-	var corr_w := 4.0
-	_make_box(Vector3(-corr_w, WALL_HEIGHT * 0.25, 0), Vector3(0.4, WALL_HEIGHT * 0.5, h * 2 - 8), white, "tile")
-	_make_box(Vector3(corr_w, WALL_HEIGHT * 0.25, 0), Vector3(0.4, WALL_HEIGHT * 0.5, h * 2 - 8), white, "tile")
+	var hall_d := 10.0
+	var nz := -h + hall_d        # -42  north hallway south edge
+	var sz := h - hall_d         #  42  south hallway north edge
+	var mid := 0.0
+	var caf_r := -h + 22.0
+	var lab_l := -h + 24.0
+	var div_x := -2.0
+	var cont_r := 28.0
+	var comp_l := 30.0
 
-	# ── TESTING LAB (west side, large room) ──
-	_make_box(Vector3(-h * 0.5, WALL_HEIGHT * 0.25, -h * 0.25), Vector3(h - corr_w - 4, WALL_HEIGHT * 0.5, 0.4), white, "tile")
-	# Lab benches
-	for i in 4:
-		var bx := -corr_w - 8 - i * 7.0
-		_make_box(Vector3(bx, 0.9, -h * 0.5), Vector3(4.5, 0.9, 1.2), steel, "metal")
-		# Broken test tubes (small cylinders scattered)
-		for j in _rng.randi_range(2, 5):
-			var tx := bx + _rng.randf_range(-1.8, 1.8)
-			var tz := -h * 0.5 + _rng.randf_range(-0.4, 0.4)
-			_make_test_tube(Vector3(tx, 0.92, tz), _rng.randf() < 0.4)
-	# Liquid puddles on the floor (the virus)
-	for i in 6:
-		var px := _rng.randf_range(-h + 8, -corr_w - 4)
-		var pz := _rng.randf_range(-h + 8, -2)
-		_make_puddle(Vector3(px, 0.01, pz), _rng.randf_range(0.5, 1.8),
-			Color(0.2, 0.55, 0.15, 0.6) if _rng.randf() < 0.5 else Color(0.5, 0.08, 0.04, 0.7))
+	# ── NORTH HALLWAY south wall (with doorways into each room) ──
+	# Segments: cafeteria door | wall | lab1 door | wall | containment door | wall | comp door
+	_lab_wall_z(nz, -h + 4, caf_r - dw, gray)        # west of caf door
+	_lab_wall_z(nz, caf_r + dw, lab_l - 1, gray)      # between caf and lab1
+	_lab_wall_z(nz, lab_l + dw + 6, div_x - dw, gray) # between lab1 door and containment door
+	_lab_wall_z(nz, div_x + dw + 4, cont_r - 1, gray) # between containment door and comp
+	_lab_wall_z(nz, comp_l - 1, comp_l + dw + 6, gray)
+	_lab_wall_z(nz, comp_l + dw + 10, h - 4, gray)
 
-	# ── CONTAINMENT CHAMBER (west side, south of testing lab) ──
-	_make_box(Vector3(-h * 0.5, WALL_HEIGHT * 0.25, h * 0.25), Vector3(h - corr_w - 4, WALL_HEIGHT * 0.5, 0.4), white, "tile")
-	# Clear cylinders (containment pods) — one broken with red liquid
-	for i in 4:
-		var cx := -corr_w - 8 - i * 6.5
-		var broken := (i == 2)
-		_make_containment_cylinder(Vector3(cx, 0, h * 0.5), broken)
+	# ── SOUTH HALLWAY north wall (with doorways) ──
+	_lab_wall_z(sz, -h + 4, caf_r - dw, gray)
+	_lab_wall_z(sz, caf_r + dw, lab_l - 1, gray)
+	_lab_wall_z(sz, lab_l + dw + 6, div_x - dw, gray)
+	_lab_wall_z(sz, div_x + dw + 4, cont_r - 1, gray)
+	_lab_wall_z(sz, comp_l - 1, comp_l + dw + 6, gray)
+	_lab_wall_z(sz, comp_l + dw + 10, h - 4, gray)
 
-	# ── CAFETERIA (east side, north half) ──
-	_make_box(Vector3(h * 0.5, WALL_HEIGHT * 0.25, -h * 0.25), Vector3(h - corr_w - 4, WALL_HEIGHT * 0.5, 0.4), white, "tile")
-	for row in 3:
+	# ── CAFETERIA (far west) ──
+	# East wall with door to hallways
+	_lab_wall_x(caf_r, nz + 1, mid - dw, gray)
+	_lab_wall_x(caf_r, mid + dw, sz - 1, gray)
+	for row in 4:
 		for col in 2:
-			var tx := corr_w + 8 + col * 10.0
-			var tz := -h + 12 + row * 7.0
-			_make_cafeteria_table(Vector3(tx, 0, tz), Color(0.82, 0.82, 0.84))
-	# Dead body on one table (box shape lying flat + blood)
-	var body_x := corr_w + 13.0
-	var body_z := -h + 19.0
-	_make_box(Vector3(body_x, 0.82, body_z), Vector3(1.6, 0.4, 0.5), Color(0.5, 0.4, 0.35))
-	_make_box(Vector3(body_x - 0.2, 0.92, body_z), Vector3(0.3, 0.3, 0.3), Color(0.5, 0.38, 0.32))
-	_make_puddle(Vector3(body_x, 0.73, body_z), 1.2, Color(0.4, 0.02, 0.01, 0.85))
-	_make_puddle(Vector3(body_x + 0.8, 0.01, body_z + 0.4), 0.7, blood)
+			_make_cafeteria_table(Vector3(-h + 6 + col * 9.0, 0, nz + 6 + row * 8.0), Color(0.78, 0.78, 0.80))
+	_make_table_body(Vector3(-h + 12, 0, nz + 20))
+	_make_wall_text(Vector3(-h + 2.5, 3.0, mid), "CAFETERIA", Color(0.5, 0.42, 0.42), Vector3(0, PI * 0.5, 0))
 
-	# ── SEALED DOOR with bloody handprints ──
-	_make_box(Vector3(corr_w + 0.2, WALL_HEIGHT * 0.25, h * 0.25), Vector3(0.3, WALL_HEIGHT * 0.5, 3.5), steel, "metal")
-	# Bloody hand labels on the sealed door
-	_make_wall_text(Vector3(corr_w + 0.5, 1.5, h * 0.25 - 0.5), "///", Color(0.5, 0.03, 0.01), Vector3(0, -PI * 0.5, 0))
-	_make_wall_text(Vector3(corr_w + 0.5, 2.2, h * 0.25 + 0.3), "\\\\\\", Color(0.4, 0.02, 0.01), Vector3(0, -PI * 0.5, 0.2))
-	_make_wall_text(Vector3(corr_w + 0.5, 1.0, h * 0.25 + 0.8), "///\\\\", Color(0.55, 0.04, 0.02), Vector3(0, -PI * 0.5, -0.15))
+	# ── LAB 1 (top center-left) ──
+	# Left wall
+	_lab_wall_x(lab_l, nz + 1, (nz + mid) * 0.5 - dw, gray)
+	_lab_wall_x(lab_l, (nz + mid) * 0.5 + dw, mid - 1, gray)
+	# Bottom wall with door
+	_lab_wall_z(mid, lab_l + 1, (lab_l + div_x) * 0.5 - dw, gray)
+	_lab_wall_z(mid, (lab_l + div_x) * 0.5 + dw, div_x - 1, gray)
+	# Right wall
+	_lab_wall_x(div_x, nz + 1, mid - 1, gray)
+	var lab1_cx := (lab_l + div_x) * 0.5
+	var lab1_cz := (nz + mid) * 0.5
+	_make_box(Vector3(lab1_cx, 0.9, lab1_cz - 4), Vector3(5.0, 0.9, 1.2), steel, "metal")
+	for j in 4:
+		_make_test_tube(Vector3(lab1_cx + _rng.randf_range(-2, 2), 0.92, lab1_cz - 4 + _rng.randf_range(-0.4, 0.4)), _rng.randf() < 0.35)
+	_make_terminal(Vector3(lab1_cx + 3, 1.5, lab1_cz - 6),
+		"LAB 1 — SAMPLE LOG\n\nSubject response: aggressive\nCognitive decline: rapid\nViral load: increasing\nRecommendation: SEAL ROOM")
+	_make_puddle(Vector3(lab1_cx - 2, 0.01, lab1_cz + 3), 1.2, Color(0.2, 0.5, 0.12, 0.6))
 
-	# ── OFFICE / SERVER ROOM (east side, south half) ──
-	_make_box(Vector3(h * 0.5, WALL_HEIGHT * 0.25, h * 0.25), Vector3(h - corr_w - 4, WALL_HEIGHT * 0.5, 0.4), white, "tile")
-	_make_box(Vector3(corr_w + 8, 0.9, h * 0.5), Vector3(4, 0.9, 1.0), white)
-	_make_box(Vector3(corr_w + 20, 0.9, h * 0.5), Vector3(4, 0.9, 1.0), white)
+	# ── CONTAINMENT (top center-right) ──
+	var cont_cx := (div_x + cont_r) * 0.5
+	var cont_cz := (nz + mid) * 0.5
+	# Right wall
+	_lab_wall_x(cont_r, nz + 1, mid - 1, gray)
+	# Bottom wall with door
+	_lab_wall_z(mid, div_x + 1, cont_cx - dw, gray)
+	_lab_wall_z(mid, cont_cx + dw, cont_r - 1, gray)
+	_make_wall_text(Vector3(cont_cx, 3.2, nz + 1.5), "CONTAINMENT — AUTHORIZED ONLY", Color(0.85, 0.08, 0.08), Vector3(0, 0, 0))
+	for i in 3:
+		var broken := (i == 1)
+		_make_containment_cylinder(Vector3(div_x + 5 + i * 8.0, 0, cont_cz - 5), broken)
+	for i in 2:
+		_make_containment_cylinder(Vector3(div_x + 9 + i * 8.0, 0, cont_cz + 5), false)
 
-	# ── DEAD BODIES scattered around ──
-	var body_spots := [
-		Vector3(-h + 12, 0, -h + 14),
-		Vector3(-corr_w - 6, 0, 8),
-		Vector3(corr_w + 6, 0, -5),
-		Vector3(h - 10, 0, h - 10),
-		Vector3(-h + 20, 0, h * 0.5 + 5),
-		Vector3(2, 0, -h + 6),
-	]
-	for bp in body_spots:
+	# ── LAB 2 (bottom center-left) ──
+	_lab_wall_x(lab_l, mid + 1, (mid + sz) * 0.5 - dw, gray)
+	_lab_wall_x(lab_l, (mid + sz) * 0.5 + dw, sz - 1, gray)
+	_lab_wall_z(mid, lab_l + 1, (lab_l + div_x) * 0.5 - dw, gray)
+	_lab_wall_z(mid, (lab_l + div_x) * 0.5 + dw, div_x - 1, gray)
+	_lab_wall_x(div_x, mid + 1, sz - 1, gray)
+	var lab2_cx := (lab_l + div_x) * 0.5
+	var lab2_cz := (mid + sz) * 0.5
+	_make_box(Vector3(lab2_cx, 0.9, lab2_cz - 3), Vector3(5.0, 0.9, 1.2), steel, "metal")
+	for j in 4:
+		_make_test_tube(Vector3(lab2_cx + _rng.randf_range(-2, 2), 0.92, lab2_cz - 3 + _rng.randf_range(-0.4, 0.4)), _rng.randf() < 0.35)
+	_make_terminal(Vector3(lab2_cx + 3, 1.5, lab2_cz - 5),
+		"LAB 2 — VIRAL ANALYSIS\n\nNeurovirus Type-7 confirmed\nFrontal lobe targeting verified\nTransmission: saliva + blood\nNo cure identified")
+	_make_puddle(Vector3(lab2_cx + 1, 0.01, lab2_cz + 4), 1.0, Color(0.5, 0.06, 0.03, 0.7))
+
+	# ── LAB 3 (bottom center-right) ──
+	var lab3_l := div_x + 2
+	var lab3_r := cont_r
+	var lab3_cx := (lab3_l + lab3_r) * 0.5
+	var lab3_cz := (mid + sz) * 0.5
+	_lab_wall_z(mid, lab3_l - 1, lab3_cx - dw, gray)
+	_lab_wall_z(mid, lab3_cx + dw, lab3_r - 1, gray)
+	_lab_wall_x(lab3_r, mid + 1, sz - 1, gray)
+	_make_box(Vector3(lab3_cx, 0.9, lab3_cz - 3), Vector3(5.0, 0.9, 1.2), steel, "metal")
+	for j in 4:
+		_make_test_tube(Vector3(lab3_cx + _rng.randf_range(-2, 2), 0.92, lab3_cz - 3 + _rng.randf_range(-0.4, 0.4)), _rng.randf() < 0.4)
+	_make_terminal(Vector3(lab3_cx + 3, 1.5, lab3_cz - 5),
+		"LAB 3 — TREATMENT TRIALS\n\nEvery test subject dies or turns.\nThe virus doesn't kill.\nIt transforms. No going back.\nContainment is the only option.")
+
+	# ── COMPUTER ROOM (far right) ──
+	_lab_wall_x(comp_l, nz + 1, (nz + mid) * 0.5 - dw, gray)
+	_lab_wall_x(comp_l, (nz + mid) * 0.5 + dw, (mid + sz) * 0.5 - dw, gray)
+	_lab_wall_x(comp_l, (mid + sz) * 0.5 + dw, sz - 1, gray)
+	var comp_cx := (comp_l + h - 4) * 0.5
+	_make_box(Vector3(comp_cx, 0.9, nz + 8), Vector3(5.0, 0.9, 1.0), gray, "wood")
+	_make_terminal(Vector3(comp_cx, 1.5, nz + 7.5),
+		"[FILE_72: CONTAINMENT_LOG]\n\n...Protocol Delta initiated...\n...patient zero accelerated...\n...cognitive deterioration 12 hours...\n[ERROR: DATA SEGMENT CORRUPTED]\n...must seal facility...")
+	_make_box(Vector3(comp_cx, 0.9, mid), Vector3(5.0, 0.9, 1.0), gray, "wood")
+	_make_terminal(Vector3(comp_cx, 1.5, mid - 0.5),
+		"[EXPERIMENT_NOTES] NEURAL-9922\n\nAGGRESSION CENTER: 140% baseline\nCOGNITIVE SHOCK: Full regression\nFrontal lobe replaced by foreign\nautonomic pulses. Subject driven\nentirely by hunting directive.")
+	_make_box(Vector3(comp_cx, 0.9, sz - 8), Vector3(5.0, 0.9, 1.0), gray, "wood")
+	_make_terminal(Vector3(comp_cx, 1.5, sz - 8.5),
+		"OUTBREAK TIMELINE\n\nDay 1: First case\nDay 2: 5 confirmed\nDay 3: 20+\nDay 4: Quarantine\nDay 5: 50+\nDay 6: Containment failure\nDay 7: Everything falls apart")
+
+	# ── SEALED DOOR (on Lab 1 / Containment divider) ──
+	_make_box(Vector3(div_x + 0.2, wy, cont_cz), Vector3(0.3, wh, 3.0), steel, "metal")
+	_make_wall_text(Vector3(div_x + 0.5, 1.6, cont_cz - 0.5), "█ █ █", Color(0.5, 0.03, 0.01), Vector3(0, -PI * 0.5, 0))
+	_make_wall_text(Vector3(div_x + 0.5, 2.1, cont_cz + 0.3), "█ █", Color(0.4, 0.02, 0.01), Vector3(0, -PI * 0.5, 0.15))
+
+	# ── DEAD BODIES ──
+	for bp in [Vector3(-h + 8, 0, nz + 4), Vector3(lab1_cx - 4, 0, lab1_cz + 6),
+			Vector3(lab3_cx + 2, 0, lab3_cz + 5), Vector3(comp_cx - 2, 0, mid + 6),
+			Vector3(0, 0, sz + 3), Vector3(cont_cx - 3, 0, cont_cz + 3)]:
 		_make_corpse_prop(bp)
 
-	# Blood splatters on walls
-	for i in 8:
-		var wx := _rng.randf_range(-h + 6, h - 6)
-		var wz := _rng.randf_range(-h + 6, h - 6)
-		var wy := _rng.randf_range(0.5, 2.5)
-		_make_blood_splat(Vector3(wx, wy, wz))
+	for i in 12:
+		_make_blood_splat(Vector3(_rng.randf_range(-h + 6, h - 6),
+			_rng.randf_range(0.5, 2.5), _rng.randf_range(-h + 6, h - 6)))
 
-	# ── BRIGHT FLUORESCENT LIGHTS (lots of them — clinical look) ──
 	for gx in range(-44, 48, 10):
-		for gz in range(-44, 48, 14):
+		for gz in range(-44, 48, 12):
 			_make_fluorescent_lab(Vector3(gx, WALL_HEIGHT - 0.8, gz))
 
-	# ── WALL POSTERS (scientific diagrams) ──
-	_make_wall_text(Vector3(-corr_w - 0.2, 2.8, -h * 0.5 - 1),
+	_make_wall_text(Vector3(-h + 2.5, 2.8, mid - 10),
 		"SYNERGIC NEUROPHAGE-7\nVIRION ARCHITECTURE\n\nHexagonal Protein Capsid\nLipid Bilayer Envelope\nG-Protein Spikes\nArtificial RNA (Recombinant)",
 		Color(0.1, 0.25, 0.45), Vector3(0, PI * 0.5, 0))
-	_make_wall_text(Vector3(-corr_w - 0.2, 2.8, -h * 0.5 + 8),
-		"GENOME REPLICATION CYCLE\n\nAttachment > Entry > Uncoating\n> Synthesis > Assembly\n> Release via Exocytosis\nError Rate: 0.01%",
+	_make_wall_text(Vector3(-h + 2.5, 2.8, mid + 10),
+		"GENOME REPLICATION CYCLE\n\nAttachment > Entry > Uncoating\n> Synthesis > Assembly > Release\nError Rate: 0.01%",
 		Color(0.1, 0.25, 0.45), Vector3(0, PI * 0.5, 0))
-	_make_wall_text(Vector3(-h + 2.5, 2.8, -h * 0.35),
+	_make_wall_text(Vector3(h - 2.5, 2.8, mid - 8),
 		"CYTOPATHIC EFFECTS (CPE)\n\nSyncytia Formation\nCell Lysis via Over-Replication",
-		Color(0.45, 0.1, 0.1), Vector3(0, PI * 0.5, 0))
-	_make_wall_text(Vector3(-h + 2.5, 2.8, h * 0.35),
-		"NEUROTRANSMITTER DISRUPTION\n\nNeuromodulator-K: Receptor Blockade\nNeuromod-A: Receptor Blockade\nPhage Override: Complete",
-		Color(0.35, 0.08, 0.08), Vector3(0, PI * 0.5, 0))
+		Color(0.45, 0.1, 0.1), Vector3(0, -PI * 0.5, 0))
+	_make_wall_text(Vector3(h - 2.5, 2.8, mid + 8),
+		"NEUROTRANSMITTER DISRUPTION\n\nNeuromodulator-K: Blockade\nNeuromod-A: Blockade\nPhage Override: Complete",
+		Color(0.35, 0.08, 0.08), Vector3(0, -PI * 0.5, 0))
 
-	# ── LORE MEMOS (floor notes + terminals) ──
 	_spawn_lab_lore()
+
+
+## Build a wall segment along Z at a fixed x position, from z0 to z1.
+func _lab_wall_z(z: float, x0: float, x1: float, col: Color) -> void:
+	if x1 <= x0:
+		return
+	var cx := (x0 + x1) * 0.5
+	var w := x1 - x0
+	_make_box(Vector3(cx, WALL_HEIGHT * 0.25, z), Vector3(w, WALL_HEIGHT * 0.5, 0.4), col)
+
+
+## Build a wall segment along X at a fixed x position, from z0 to z1.
+func _lab_wall_x(x: float, z0: float, z1: float, col: Color) -> void:
+	if z1 <= z0:
+		return
+	var cz := (z0 + z1) * 0.5
+	var d := z1 - z0
+	_make_box(Vector3(x, WALL_HEIGHT * 0.25, cz), Vector3(0.4, WALL_HEIGHT * 0.5, d), col)
 
 
 func _make_test_tube(pos: Vector3, broken: bool) -> void:
@@ -1157,22 +1226,96 @@ func _make_containment_cylinder(pos: Vector3, broken: bool) -> void:
 
 
 func _make_corpse_prop(pos: Vector3) -> void:
-	# Torso
-	_make_box(pos + Vector3(0, 0.15, 0), Vector3(0.6, 0.3, 1.5),
-		Color(0.5, 0.42, 0.38).darkened(_rng.randf_range(0.0, 0.2)))
+	var skin := Color(0.52, 0.42, 0.36).darkened(_rng.randf_range(0.0, 0.25))
+	var cloth := Color(0.3, 0.28, 0.25).darkened(_rng.randf_range(0.0, 0.15))
+	var rot_y := _rng.randf_range(0, TAU)
+	var root := Node3D.new()
+	root.position = pos
+	root.rotation.y = rot_y
+	add_child(root)
+	# Torso (capsule lying flat)
+	var torso := MeshInstance3D.new()
+	var tc := CapsuleMesh.new()
+	tc.radius = 0.22
+	tc.height = 1.0
+	torso.mesh = tc
+	torso.position = Vector3(0, 0.22, 0)
+	torso.rotation.z = PI * 0.5
+	torso.material_override = _mat(cloth)
+	root.add_child(torso)
 	# Head
-	var head_mi := MeshInstance3D.new()
-	var sm := SphereMesh.new()
-	sm.radius = 0.15
-	sm.height = 0.3
-	head_mi.mesh = sm
-	head_mi.position = pos + Vector3(0, 0.2, -0.8)
-	head_mi.material_override = _mat(Color(0.5, 0.4, 0.35))
-	add_child(head_mi)
+	var head := MeshInstance3D.new()
+	var hm := SphereMesh.new()
+	hm.radius = 0.16
+	head.mesh = hm
+	head.position = Vector3(-0.6, 0.18, 0)
+	head.material_override = _mat(skin)
+	root.add_child(head)
+	# Legs (two capsules)
+	for side in [-0.12, 0.12]:
+		var leg := MeshInstance3D.new()
+		var lm := CapsuleMesh.new()
+		lm.radius = 0.1
+		lm.height = 0.8
+		leg.mesh = lm
+		leg.position = Vector3(0.6, 0.12, side)
+		leg.rotation.z = PI * 0.5
+		leg.material_override = _mat(cloth.darkened(0.1))
+		root.add_child(leg)
+	# Arm (one draped out)
+	var arm := MeshInstance3D.new()
+	var am := CapsuleMesh.new()
+	am.radius = 0.07
+	am.height = 0.6
+	arm.mesh = am
+	arm.position = Vector3(-0.1, 0.12, 0.35)
+	arm.rotation.z = PI * 0.4
+	arm.material_override = _mat(skin)
+	root.add_child(arm)
 	# Blood pool
-	_make_puddle(pos + Vector3(_rng.randf_range(-0.3, 0.3), 0.005,
-		_rng.randf_range(-0.2, 0.5)), _rng.randf_range(0.6, 1.4),
+	_make_puddle(pos + Vector3(_rng.randf_range(-0.4, 0.4), 0.005,
+		_rng.randf_range(-0.3, 0.3)), _rng.randf_range(0.8, 1.6),
 		Color(0.4, 0.02, 0.01, 0.8))
+
+
+func _make_table_body(pos: Vector3) -> void:
+	# A cafeteria table with a partially consumed body on it
+	_make_cafeteria_table(pos, Color(0.82, 0.82, 0.84))
+	var skin := Color(0.48, 0.38, 0.33)
+	var cloth := Color(0.35, 0.32, 0.28)
+	var ty := 0.78  # table surface height
+	# Torso on table
+	var torso := MeshInstance3D.new()
+	var tc := CapsuleMesh.new()
+	tc.radius = 0.25
+	tc.height = 1.1
+	torso.mesh = tc
+	torso.position = pos + Vector3(0, ty + 0.25, 0)
+	torso.rotation.z = PI * 0.5
+	torso.material_override = _mat(cloth)
+	add_child(torso)
+	# Head
+	var head := MeshInstance3D.new()
+	var hm := SphereMesh.new()
+	hm.radius = 0.17
+	head.mesh = hm
+	head.position = pos + Vector3(-0.65, ty + 0.22, 0)
+	head.material_override = _mat(skin)
+	add_child(head)
+	# Arm hanging off table
+	var arm := MeshInstance3D.new()
+	var am := CapsuleMesh.new()
+	am.radius = 0.08
+	am.height = 0.65
+	arm.mesh = am
+	arm.position = pos + Vector3(0.2, ty - 0.1, 0.55)
+	arm.rotation = Vector3(0.3, 0, 0.8)
+	arm.material_override = _mat(skin)
+	add_child(arm)
+	# Blood on table + dripping to floor
+	_make_puddle(pos + Vector3(0.1, ty + 0.02, 0), 0.9, Color(0.45, 0.02, 0.01, 0.85))
+	_make_puddle(pos + Vector3(0.3, ty + 0.02, -0.3), 0.5, Color(0.4, 0.03, 0.01, 0.75))
+	_make_puddle(pos + Vector3(0.5, 0.01, 0.6), 0.7, Color(0.35, 0.02, 0.01, 0.7))
 
 
 func _make_blood_splat(pos: Vector3) -> void:
@@ -2498,8 +2641,8 @@ func _ground_mat() -> StandardMaterial3D:
 			tex_path = TEX_PATHS["rock"]
 			tiling = ARENA_SIZE / 5.0
 		Style.LAB:
-			tex_path = TEX_PATHS["tile"]
-			tiling = ARENA_SIZE / 2.5
+			tex_path = TEX_PATHS["metal"]
+			tiling = ARENA_SIZE / 3.0
 	var m := StandardMaterial3D.new()
 	m.albedo_color = ground_color
 	m.roughness = 0.95

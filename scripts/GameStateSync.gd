@@ -62,6 +62,7 @@ func push_lobby_settings() -> void:
 		"weapon": GameManager.selected_weapon,
 		"time": GameManager.round_minutes,
 		"killers": GameManager.killer_count,
+		"mode": GameManager.game_mode,
 	})
 
 

@@ -15,7 +15,7 @@ signal player_revived(peer_id: int)
 
 enum Phase { LOBBY, COUNTDOWN, HUNTING, END }
 enum Role  { HUNTER, HUNTED, GHOST }
-enum Mode  { STANDARD, PARKOUR }
+enum Mode  { STANDARD, PARKOUR, INFECTION }
 
 var game_mode: int = Mode.STANDARD
 
@@ -319,11 +319,17 @@ func grief_runner(node: Object, ghost_id: int, dmg: int, stun: float, hit_type: 
 func capture_player(peer_id: int, by_peer_id: int) -> void:
 	if get_role(peer_id) != Role.HUNTED:
 		return
-	roles[peer_id] = Role.GHOST
+	var new_role: int
+	if game_mode == Mode.INFECTION:
+		new_role = Role.HUNTER
+		capture_counts[peer_id] = 0
+	else:
+		new_role = Role.GHOST
+	roles[peer_id] = new_role
 	capture_times[peer_id] = get_round_seconds() - _seconds_left
 	if capture_counts.has(by_peer_id):
 		capture_counts[by_peer_id] += 1
-	role_assigned.emit(peer_id, Role.GHOST)
+	role_assigned.emit(peer_id, new_role)
 	player_captured.emit(peer_id, by_peer_id)
 	AudioManager.play_capture_scream()
 	GameStateSync.push_capture(peer_id, by_peer_id)

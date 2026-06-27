@@ -267,9 +267,21 @@ func _unhandled_input(event: InputEvent) -> void:
 			_flashlight.visible = true
 		return
 
-	# Interact with lore objects (all roles).
+	# Interact with lore objects (all non-ghost roles).
 	if event.is_action_pressed("grab") and role != GameManager.Role.GHOST:
-		_try_interact()
+		if _current_interactable != null:
+			_try_interact()
+			get_viewport().set_input_as_handled()
+			return
+		var has_nearby := false
+		for n in get_tree().get_nodes_in_group("interactable"):
+			if is_instance_valid(n) and global_position.distance_to(n.global_position) < 3.5:
+				has_nearby = true
+				break
+		if has_nearby:
+			_try_interact()
+			get_viewport().set_input_as_handled()
+			return
 
 	# Hunter-only actions.
 	if role != GameManager.Role.HUNTER:
@@ -800,10 +812,15 @@ func apply_stun(duration: float) -> void:
 	_stun_timer = maxf(_stun_timer, duration)
 
 
+var _current_interactable: Node = null
+
 func _try_interact() -> void:
 	var ui := get_tree().get_first_node_in_group("hunting_ui")
-	if ui and ui.has_method("hide_interact_doc") and "_reading" in ui and ui._reading:
-		ui.hide_interact_doc()
+	if _current_interactable != null:
+		_current_interactable.close()
+		_current_interactable = null
+		if ui and ui.has_method("hide_interact_doc"):
+			ui.hide_interact_doc()
 		return
 	var best: Node = null
 	var best_dist := 999.0
@@ -814,9 +831,10 @@ func _try_interact() -> void:
 		if d < 3.5 and d < best_dist:
 			best_dist = d
 			best = n
-	if best and best.has_method("try_interact"):
-		best.try_interact()
-		if ui and ui.has_method("show_interact_doc") and "title" in best and "body" in best:
+	if best != null:
+		best.open()
+		_current_interactable = best
+		if ui and ui.has_method("show_interact_doc"):
 			ui.show_interact_doc(best.title, best.body)
 
 

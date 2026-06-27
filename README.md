@@ -43,6 +43,7 @@ LOBBY  -->  COUNTDOWN (5s)  -->  HUNTING (3-20 min)  -->  END
 
 - **11 maps** — Urban, Forest, Warehouse, Mansion, Neon, Graveyard, Maze, Dungeon, School, Cave, Lab
 - **8 weapons** — Knife, Cleaver, Axe, Katana, Sword, Hammer, Pickaxe, Baseball Bat
+- **3 game modes** — Standard (hunt + generators), Parkour (obstacle course + lives), Infection (caught = you become a hunter)
 - **Anti-camp system** — Killers loitering near generators with no runners nearby get teleported away
 - **Progressive injury** — Runners slow down, lose stamina, and repair generators slower as they take damage
 - **Horror systems** — Jumpscares, vignette blindness, heartbeat audio, glitch overlays, shadow entities, mirages

@@ -539,7 +539,10 @@ func _refresh_role() -> void:
 	var role := GameManager.get_local_role()
 	match role:
 		GameManager.Role.HUNTER:
-			_role.text = "HUNTER"
+			if GameManager.game_mode == GameManager.Mode.INFECTION:
+				_role.text = "INFECTED — SPREAD IT"
+			else:
+				_role.text = "HUNTER"
 			_minimap.visible       = false   # only ghosts get a minimap now
 			_crosshair.visible     = true
 			_battery.visible       = true
@@ -555,7 +558,10 @@ func _refresh_role() -> void:
 			_hint.text = "WASD move · LMB stab · RMB throw · Shift dash · Space jump · F light"
 
 		GameManager.Role.HUNTED:
-			_role.text = "HUNTED — RUN"
+			if GameManager.game_mode == GameManager.Mode.INFECTION:
+				_role.text = "SURVIVOR — DON'T GET TOUCHED"
+			else:
+				_role.text = "HUNTED — RUN"
 			_minimap.visible       = false
 			_crosshair.visible     = false
 			_battery.visible       = true
@@ -651,13 +657,16 @@ func _process(delta: float) -> void:
 		_update_gen_progress()
 
 	# ── Interact prompt ──
-	if _interact_prompt and not _reading and player_ok:
-		var show_prompt := false
-		for n in get_tree().get_nodes_in_group("interactable"):
-			if is_instance_valid(n) and n.global_position.distance_to(player.global_position) < 3.5:
-				show_prompt = true
-				break
-		_interact_prompt.visible = show_prompt
+	if _interact_prompt:
+		if _reading:
+			_interact_prompt.visible = false
+		elif player_ok:
+			var show_prompt := false
+			for n in get_tree().get_nodes_in_group("interactable"):
+				if is_instance_valid(n) and n.global_position.distance_to(player.global_position) < 3.5:
+					show_prompt = true
+					break
+			_interact_prompt.visible = show_prompt
 
 	# ── Locker check ──
 	_update_locker(player, delta)
