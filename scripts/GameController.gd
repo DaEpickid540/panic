@@ -15,6 +15,7 @@ const MAP_SCENES := {
 	"School":    "res://scenes/maps/School.tscn",
 	"Cave":      "res://scenes/maps/Cave.tscn",
 	"Lab":       "res://scenes/maps/Lab.tscn",
+	"ParkourVoid": "res://scenes/maps/ParkourVoid.tscn",
 }
 
 const SHADOW_COUNT  := 2    # shadow entities per match
@@ -76,7 +77,11 @@ func _on_phase_changed(new_phase: int, _old: int) -> void:
 func _on_hunting_started() -> void:
 	if _active:
 		return   # already set up (host fires both phase_changed and hunting_started)
-	_load_map(GameManager.selected_map)
+	# Parkour always uses its own clean white void room, ignoring the map pick.
+	if GameManager.game_mode == GameManager.Mode.PARKOUR:
+		_load_map("ParkourVoid")
+	else:
+		_load_map(GameManager.selected_map)
 	var role := GameManager.get_local_role()
 	_spawner.spawn_local(role)
 	for peer_id in NetworkManager.get_peer_ids():
@@ -125,8 +130,19 @@ func _spawn_parkour() -> void:
 	_parkour_lives.clear()
 	for pid in NetworkManager.get_peer_ids():
 		_parkour_lives[pid] = GameManager.gen_count
+
+	# Put everyone on the starting platform; nudge hunters back so they chase.
+	var start: Vector3 = _parkour.get_start_pos()
 	if _spawner.local_player and is_instance_valid(_spawner.local_player):
-		_spawner.local_player.global_position = _parkour.get_start_pos()
+		var lp = _spawner.local_player
+		var off := Vector3(0, 0, 2.0) if lp.role == GameManager.Role.HUNTER else Vector3.ZERO
+		lp.global_position = start + off
+		lp.velocity = Vector3.ZERO
+	for pid in _spawner.remotes:
+		var rp = _spawner.remotes[pid]
+		if is_instance_valid(rp):
+			var jitter := Vector3(randf_range(-1.0, 1.0), 0.0, randf_range(-0.5, 2.0))
+			rp.global_position = start + jitter
 
 
 func _on_parkour_fall(pid: int) -> void:
@@ -439,6 +455,10 @@ func _on_role_assigned(peer_id: int, role: int) -> void:
 		if _spawner.local_player and is_instance_valid(_spawner.local_player):
 			_spawner.local_player.configure_for_role(role)
 			_spawner.local_player.slowed = was_revived
+			# Infection: a runner who just turned needs the capture raycast so
+			# they can actually infect others.
+			if role == GameManager.Role.HUNTER:
+				_attach_capture_detector()
 	else:
 		var rp = _spawner.get_remote(peer_id)
 		if rp:

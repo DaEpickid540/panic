@@ -1,0 +1,10 @@
+[gd_scene format=3 uid="uid://cpanicmapparkour"]
+
+[ext_resource type="Script" path="res://scripts/MapBase.gd" id="1_map"]
+
+[node name="ParkourVoid" type="Node3D"]
+script = ExtResource("1_map")
+style = 11
+ground_color = Color(0.95, 0.95, 0.97, 1)
+obstacle_color = Color(0.9, 0.9, 0.92, 1)
+seed_value = 9090

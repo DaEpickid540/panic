@@ -18,9 +18,15 @@ const PLATFORM_MIN_D := 2.0
 const PLATFORM_MAX_D := 4.0
 const MAX_GAP_H      := 3.8
 const MAX_HEIGHT_UP   := 1.2
-const MAX_HEIGHT_DOWN := 3.0
+const MAX_HEIGHT_DOWN := 1.5
 const CHECKPOINT_EVERY := 5
-const KILL_Y          := -8.0
+
+## The whole course floats above the map floor so falling clearly leaves it.
+const BASE_Y    := 18.0
+const BAND_LOW  := BASE_Y - 4.0    # lowest a valid platform may sit
+const BAND_HIGH := BASE_Y + 10.0   # highest a valid platform may sit
+const KILL_Y    := BASE_Y - 7.0    # below every valid platform → a real fall
+const ROOM_HALF := 55.0            # course stays inside the white void room
 
 var _rng := RandomNumberGenerator.new()
 var _platforms: Array[Dictionary] = []
@@ -37,7 +43,7 @@ func setup(spawner: Node, seed_val: int) -> void:
 
 
 func _generate() -> void:
-	var pos := Vector3.ZERO
+	var pos := Vector3(0, BASE_Y, 0)
 	var forward := Vector3(0, 0, -1)
 
 	for i in SEGMENT_COUNT:
@@ -59,8 +65,17 @@ func _generate() -> void:
 		var gap := _rng.randf_range(1.5, MAX_GAP_H)
 		var dy := _rng.randf_range(-MAX_HEIGHT_DOWN, MAX_HEIGHT_UP)
 		var turn := _rng.randf_range(-0.4, 0.4)
-		forward = forward.rotated(Vector3.UP, turn).normalized()
+		# Steer back toward the room centre if we're drifting near a wall, so the
+		# course always stays inside the bounded white room.
+		if absf(pos.x) > ROOM_HALF - 14.0 or absf(pos.z) > ROOM_HALF - 14.0:
+			var inward := (Vector3.ZERO - Vector3(pos.x, 0, pos.z)).normalized()
+			forward = forward.lerp(inward, 0.5).normalized()
+		else:
+			forward = forward.rotated(Vector3.UP, turn).normalized()
 		pos += forward * (pd * 0.5 + gap + pd * 0.5) + Vector3(0, dy, 0)
+		pos.y = clampf(pos.y, BAND_LOW, BAND_HIGH)   # never descend into the kill plane
+		pos.x = clampf(pos.x, -ROOM_HALF + 6.0, ROOM_HALF - 6.0)
+		pos.z = clampf(pos.z, -ROOM_HALF + 6.0, ROOM_HALF - 6.0)
 
 		if i > 3 and _rng.randf() < 0.2:
 			_make_obstacle(pos, pw)
@@ -83,16 +98,13 @@ func _make_platform(pos: Vector3, size: Vector3, idx: int) -> void:
 	mesh.size = size
 	mi.mesh = mesh
 	var m := StandardMaterial3D.new()
-	var t := float(idx) / float(SEGMENT_COUNT)
-	m.albedo_color = Color(0.25 + t * 0.3, 0.12, 0.12 + (1.0 - t) * 0.15)
-	m.roughness = 0.8
+	m.albedo_color = Color(0.94, 0.94, 0.96)   # clean white platforms
+	m.roughness = 0.7
 	mi.material_override = m
 	body.add_child(mi)
+	# Subtle light-gray rim so edges read against the white room.
 	var edge_mat := StandardMaterial3D.new()
-	edge_mat.albedo_color = Color(0.85, 0.08, 0.08)
-	edge_mat.emission_enabled = true
-	edge_mat.emission = Color(0.6, 0.04, 0.04)
-	edge_mat.emission_energy_multiplier = 1.2
+	edge_mat.albedo_color = Color(0.7, 0.72, 0.76)
 	var edge := MeshInstance3D.new()
 	var em := BoxMesh.new()
 	em.size = Vector3(size.x + 0.1, 0.06, size.z + 0.1)
@@ -167,7 +179,10 @@ func _make_obstacle(pos: Vector3, plat_w: float) -> void:
 	mesh.size = Vector3(plat_w * 0.6, wall_h, 0.4)
 	mi.mesh = mesh
 	var m := StandardMaterial3D.new()
-	m.albedo_color = Color(0.4, 0.12, 0.12)
+	m.albedo_color = Color(0.85, 0.08, 0.08)   # red = hazard
+	m.emission_enabled = true
+	m.emission = Color(0.6, 0.03, 0.03)
+	m.emission_energy_multiplier = 1.0
 	mi.material_override = m
 	body.add_child(mi)
 
@@ -187,9 +202,9 @@ func _make_moving_platform(pos: Vector3, pw: float, pd: float) -> void:
 	mesh.size = Vector3(pw * 0.7, 0.3, pd * 0.7)
 	mi.mesh = mesh
 	var m := StandardMaterial3D.new()
-	m.albedo_color = Color(0.5, 0.2, 0.5)
+	m.albedo_color = Color(0.3, 0.7, 0.95)   # cyan = moving (safe to stand on)
 	m.emission_enabled = true
-	m.emission = Color(0.3, 0.1, 0.35)
+	m.emission = Color(0.15, 0.45, 0.7)
 	m.emission_energy_multiplier = 1.0
 	mi.material_override = m
 	body.add_child(mi)
@@ -211,20 +226,26 @@ func get_checkpoint(index: int) -> Vector3:
 	return _checkpoints[index]
 
 
-func get_last_checkpoint_for(pos: Vector3) -> Vector3:
-	var best := get_start_pos()
-	for cp in _checkpoints:
-		if cp.z <= pos.z + 2.0:
-			best = cp
-	return best
+## Highest checkpoint index the local player has touched (progress tracking).
+var _reached := 0
 
 
 func _process(_delta: float) -> void:
 	if not _active or _spawner == null:
 		return
 	var lp = _spawner.get("local_player")
-	if lp != null and is_instance_valid(lp) and lp.global_position.y < KILL_Y:
-		var cp := get_last_checkpoint_for(lp.global_position)
+	if lp == null or not is_instance_valid(lp):
+		return
+
+	# Advance the reached-checkpoint as the player nears the next one.
+	if _reached + 1 < _checkpoints.size():
+		var nxt: Vector3 = _checkpoints[_reached + 1]
+		if lp.global_position.distance_to(nxt) < 3.5:
+			_reached += 1
+
+	# Fell off the course → respawn at the last reached checkpoint.
+	if lp.global_position.y < KILL_Y:
+		var cp: Vector3 = _checkpoints[_reached] if _reached < _checkpoints.size() else get_start_pos()
 		lp.global_position = cp
 		lp.velocity = Vector3.ZERO
 		player_fell.emit(lp.peer_id)

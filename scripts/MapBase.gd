@@ -8,7 +8,7 @@ class_name MapBase
 ## same size, collision footprint and spawn layout for fair play.
 
 # MAZE is appended (=6) so existing scenes' integer `style` values stay valid.
-enum Style { URBAN, FOREST, WAREHOUSE, MANSION, NEON, GRAVEYARD, MAZE, DUNGEON, SCHOOL, CAVE, LAB }
+enum Style { URBAN, FOREST, WAREHOUSE, MANSION, NEON, GRAVEYARD, MAZE, DUNGEON, SCHOOL, CAVE, LAB, PARKOUR_VOID }
 
 const ARENA_SIZE := 200.0
 const HALF := ARENA_SIZE * 0.5
@@ -157,6 +157,13 @@ const INDOOR_STYLES := [Style.MANSION, Style.NEON, Style.WAREHOUSE, Style.MAZE,
 
 func _ready() -> void:
 	_rng.seed = seed_value
+	# Parkour void is a self-contained clean white room — skip the normal
+	# floor/walls/obstacle pipeline entirely.
+	if style == Style.PARKOUR_VOID:
+		_half = 58.0
+		_build_parkour_void()
+		_build_spawns()
+		return
 	_emissive = style == Style.NEON
 	# Indoor maps are fully-enclosed buildings (Murder-Mystery-2 style):
 	# thick exterior walls, a ceiling, and interior rooms/corridors.
@@ -1149,6 +1156,97 @@ func _lab_wall_x(x: float, z0: float, z1: float, col: Color) -> void:
 	var cz := (z0 + z1) * 0.5
 	var d := z1 - z0
 	_make_box(Vector3(x, WALL_HEIGHT * 0.25, cz), Vector3(0.4, WALL_HEIGHT * 0.5, d), col)
+
+
+## A clean, brightly-lit white box room for parkour. The course (built by
+## ParkourCourse) floats inside at y~18; the red floor below is the kill zone.
+func _build_parkour_void() -> void:
+	var h := _half          # 58
+	var room_h := 44.0      # tall enough to enclose the floating course
+	var white := Color(0.95, 0.95, 0.97)
+
+	# Bright, flat, even environment — no fog, no horror.
+	var env := Environment.new()
+	env.background_mode = Environment.BG_COLOR
+	env.background_color = Color(0.97, 0.97, 0.99)
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	env.ambient_light_color = Color(0.95, 0.95, 1.0)
+	env.ambient_light_energy = 1.0
+	env.fog_enabled = false
+	var we := WorldEnvironment.new()
+	we.environment = env
+	add_child(we)
+
+	# Red kill FLOOR (falling onto it = death). Glowing red, unmistakable.
+	var floor_body := StaticBody3D.new()
+	floor_body.collision_layer = 1
+	add_child(floor_body)
+	var fshape := CollisionShape3D.new()
+	var fbox := BoxShape3D.new()
+	fbox.size = Vector3(h * 2, 1, h * 2)
+	fshape.shape = fbox
+	fshape.position = Vector3(0, -0.5, 0)
+	floor_body.add_child(fshape)
+	var fmi := MeshInstance3D.new()
+	var fmesh := BoxMesh.new()
+	fmesh.size = Vector3(h * 2, 1, h * 2)
+	fmi.mesh = fmesh
+	fmi.position = Vector3(0, -0.5, 0)
+	var fmat := StandardMaterial3D.new()
+	fmat.albedo_color = Color(0.7, 0.05, 0.05)
+	fmat.emission_enabled = true
+	fmat.emission = Color(0.6, 0.03, 0.03)
+	fmat.emission_energy_multiplier = 0.6
+	fmi.material_override = fmat
+	floor_body.add_child(fmi)
+
+	# White repeating walls + ceiling.
+	var wall_mat := _mat(white, "tile")
+	var specs := [
+		[Vector3(0, room_h * 0.5, -h), Vector3(h * 2, room_h, 0.6)],
+		[Vector3(0, room_h * 0.5, h), Vector3(h * 2, room_h, 0.6)],
+		[Vector3(-h, room_h * 0.5, 0), Vector3(0.6, room_h, h * 2)],
+		[Vector3(h, room_h * 0.5, 0), Vector3(0.6, room_h, h * 2)],
+	]
+	for s in specs:
+		var body := StaticBody3D.new()
+		body.collision_layer = 1
+		body.position = s[0]
+		add_child(body)
+		var shp := CollisionShape3D.new()
+		var bx := BoxShape3D.new()
+		bx.size = s[1]
+		shp.shape = bx
+		body.add_child(shp)
+		var mi := MeshInstance3D.new()
+		var bm := BoxMesh.new()
+		bm.size = s[1]
+		mi.mesh = bm
+		mi.material_override = wall_mat
+		body.add_child(mi)
+	# White ceiling.
+	var ceil_mi := MeshInstance3D.new()
+	var cmesh := BoxMesh.new()
+	cmesh.size = Vector3(h * 2, 0.6, h * 2)
+	ceil_mi.mesh = cmesh
+	ceil_mi.position = Vector3(0, room_h, 0)
+	ceil_mi.material_override = _mat(white, "tile")
+	add_child(ceil_mi)
+
+	# Even white lighting from above.
+	for gx in [-h * 0.5, h * 0.5]:
+		for gz in [-h * 0.5, h * 0.5]:
+			var o := OmniLight3D.new()
+			o.light_color = Color(1, 1, 1)
+			o.light_energy = 2.2
+			o.omni_range = h * 1.4
+			o.position = Vector3(gx, room_h - 4, gz)
+			add_child(o)
+	var sun := DirectionalLight3D.new()
+	sun.light_color = Color(1, 1, 1)
+	sun.light_energy = 0.8
+	sun.rotation = Vector3(deg_to_rad(-70), deg_to_rad(30), 0)
+	add_child(sun)
 
 
 func _make_test_tube(pos: Vector3, broken: bool) -> void:
@@ -2496,7 +2594,12 @@ func _build_spawns() -> void:
 	add_child(root)
 	var h := Marker3D.new()
 	h.name = "HunterSpawn"
-	h.position = Vector3(0, 1, 0)
+	# Most maps keep the centre clear; the LAB routes walls through the origin,
+	# so drop the hunter into the open north hallway instead.
+	if style == Style.LAB:
+		h.position = Vector3(0, 1, -_half + 5.0)
+	else:
+		h.position = Vector3(0, 1, 0)
 	root.add_child(h)
 	var rad := _half - 4.0
 	for i in PERIMETER_SPAWNS:
