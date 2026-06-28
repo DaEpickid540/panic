@@ -63,6 +63,7 @@ func push_lobby_settings() -> void:
 		"time": GameManager.round_minutes,
 		"killers": GameManager.killer_count,
 		"mode": GameManager.game_mode,
+		"pdiff": GameManager.parkour_difficulty,
 	})
 
 

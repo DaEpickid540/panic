@@ -56,6 +56,7 @@ var debug_overlay: bool = false
 var killer_count: int = 1
 var gen_count: int = 6
 var gen_required: int = 5
+var parkour_difficulty: int = 1   # 0=Easy, 1=Normal, 2=Hard
 
 ## Set to true in the Godot editor (or from the console) to silence all
 ## jumpscares during development — won't get committed by accident.
@@ -100,6 +101,7 @@ func load_settings() -> void:
 		settings_fog         = float(cfg.get_value("video",    "fog",         1.0))
 		debug_overlay        = bool(cfg.get_value("debug",     "overlay",     false))
 		killer_count         = int(cfg.get_value("match",      "killers",     1))
+		parkour_difficulty   = int(cfg.get_value("match",      "parkour_diff", 1))
 	AudioManager.set_master_volume(settings_master)
 
 func save_settings() -> void:
@@ -109,6 +111,7 @@ func save_settings() -> void:
 	cfg.set_value("video",    "fog",         settings_fog)
 	cfg.set_value("debug",    "overlay",     debug_overlay)
 	cfg.set_value("match",    "killers",     killer_count)
+	cfg.set_value("match",    "parkour_diff", parkour_difficulty)
 	cfg.save(SETTINGS_PATH)
 
 func set_sensitivity(value: float) -> void:

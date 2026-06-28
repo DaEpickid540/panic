@@ -61,6 +61,7 @@ var _red_flash:   ColorRect
 var _killfeed:    Label
 var _pickup_toast: Label
 var _obj_label: Label
+var _parkour_label: Label
 var _gen_panel: VBoxContainer
 var _gen_bars: Array[ProgressBar] = []
 var _gen_labels: Array[Label] = []
@@ -147,6 +148,7 @@ func _ready() -> void:
 	_build_killfeed()
 	_build_pickup_toast()
 	_build_objective_label()
+	_build_parkour_label()
 	_build_locker_panel()
 	_build_interact_ui()
 
@@ -281,6 +283,23 @@ func _build_objective_label() -> void:
 	_gen_panel.add_theme_constant_override("separation", 3)
 	_gen_panel.visible = false
 	add_child(_gen_panel)
+
+
+func _build_parkour_label() -> void:
+	_parkour_label = Label.new()
+	_parkour_label.layout_mode  = 1
+	_parkour_label.anchor_left  = 0.5
+	_parkour_label.anchor_right = 0.5
+	_parkour_label.offset_left  = -200.0
+	_parkour_label.offset_right =  200.0
+	_parkour_label.offset_top   =  84.0
+	_parkour_label.offset_bottom = 112.0
+	_parkour_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_parkour_label.add_theme_color_override("font_color", Color(0.95, 0.92, 0.5))
+	_parkour_label.add_theme_font_size_override("font_size", 20)
+	_parkour_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_parkour_label.visible = false
+	add_child(_parkour_label)
 
 
 func _build_locker_panel() -> void:
@@ -655,6 +674,19 @@ func _process(delta: float) -> void:
 	# ── Generator progress bars ──
 	if _gen_panel and _gen_panel.visible:
 		_update_gen_progress()
+
+	# ── Parkour readout (run timer + checkpoint counter) ──
+	if _parkour_label:
+		if GameManager.game_mode == GameManager.Mode.PARKOUR:
+			var course := get_tree().get_first_node_in_group("parkour_course")
+			if course != null:
+				var t: float = course.elapsed_time()
+				var p: Vector2i = course.progress()
+				_parkour_label.visible = true
+				_parkour_label.text = "⏱ %02d:%02d   ⬢ CHECKPOINT %d / %d" % [
+					int(t) / 60, int(t) % 60, p.x, p.y]
+		elif _parkour_label.visible:
+			_parkour_label.visible = false
 
 	# ── Interact prompt ──
 	if _interact_prompt:

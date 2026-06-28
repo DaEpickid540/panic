@@ -360,6 +360,31 @@ func _build_settings_section() -> void:
 	v.add_child(kill_row)
 	_host_controls.append_array(_kill_btns)
 
+	# Match — parkour difficulty
+	var diff_row := HBoxContainer.new()
+	diff_row.add_theme_constant_override("separation", 4)
+	_add_row_label(diff_row, "PARKOUR")
+	var _diff_btns: Array[Button] = []
+	var diff_names := ["EASY", "NORMAL", "HARD"]
+	for d in 3:
+		var b := Button.new()
+		b.text = diff_names[d]
+		b.toggle_mode = true
+		b.button_pressed = (GameManager.parkour_difficulty == d)
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var dd: int = d
+		b.pressed.connect(func():
+			GameManager.parkour_difficulty = dd
+			GameManager.save_settings()
+			for i in _diff_btns.size():
+				_diff_btns[i].button_pressed = (GameManager.parkour_difficulty == i)
+				_apply_sel_style(_diff_btns[i], _diff_btns[i].button_pressed))
+		diff_row.add_child(b)
+		_diff_btns.append(b)
+		_apply_sel_style(b, b.button_pressed)
+	v.add_child(diff_row)
+	_host_controls.append_array(_diff_btns)
+
 	# Debug toggle
 	var dbg_row := HBoxContainer.new()
 	dbg_row.add_theme_constant_override("separation", 4)
@@ -470,6 +495,8 @@ func _on_lobby_settings(settings: Dictionary) -> void:
 		GameManager.killer_count = int(settings["killers"])
 	if settings.has("mode"):
 		GameManager.game_mode = int(settings["mode"])
+	if settings.has("pdiff"):
+		GameManager.parkour_difficulty = int(settings["pdiff"])
 
 
 func _lock_for_joiner() -> void:

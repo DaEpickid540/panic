@@ -11,12 +11,10 @@ extends Node3D
 signal player_fell(peer_id: int)
 signal course_finished(peer_id: int)
 
-const SEGMENT_COUNT  := 28
 const PLATFORM_MIN_W := 2.5
 const PLATFORM_MAX_W := 5.0
 const PLATFORM_MIN_D := 2.0
 const PLATFORM_MAX_D := 4.0
-const MAX_GAP_H      := 3.8
 const MAX_HEIGHT_UP   := 1.2
 const MAX_HEIGHT_DOWN := 1.5
 const CHECKPOINT_EVERY := 5
@@ -28,25 +26,51 @@ const BAND_HIGH := BASE_Y + 10.0   # highest a valid platform may sit
 const KILL_Y    := BASE_Y - 7.0    # below every valid platform → a real fall
 const ROOM_HALF := 55.0            # course stays inside the white void room
 
+## Difficulty-scaled at setup (segment count, gap reach, hazard frequency).
+## Gaps never exceed ~4.2 m — the realistic max sprint-jump distance.
+var _segments := 28
+var _max_gap := 3.8
+var _obstacle_chance := 0.2
+var _mover_chance := 0.15
+
 var _rng := RandomNumberGenerator.new()
 var _platforms: Array[Dictionary] = []
 var _checkpoints: Array[Vector3] = []
 var _spawner: Node
 var _active := false
+var _elapsed := 0.0       # run timer (seconds), read by HuntingUI
+var _finished := false
 
 
 func setup(spawner: Node, seed_val: int) -> void:
 	_spawner = spawner
 	_rng.seed = seed_val
+	add_to_group("parkour_course")
+	match GameManager.parkour_difficulty:
+		0:  # EASY
+			_segments = 20; _max_gap = 3.0; _obstacle_chance = 0.1; _mover_chance = 0.08
+		2:  # HARD
+			_segments = 38; _max_gap = 4.2; _obstacle_chance = 0.32; _mover_chance = 0.22
+		_:  # NORMAL
+			_segments = 28; _max_gap = 3.8; _obstacle_chance = 0.2; _mover_chance = 0.15
 	_generate()
 	_active = true
+
+
+## (checkpoints reached, total checkpoints) — for the HUD.
+func progress() -> Vector2i:
+	return Vector2i(_reached + 1, _checkpoints.size())
+
+
+func elapsed_time() -> float:
+	return _elapsed
 
 
 func _generate() -> void:
 	var pos := Vector3(0, BASE_Y, 0)
 	var forward := Vector3(0, 0, -1)
 
-	for i in SEGMENT_COUNT:
+	for i in _segments:
 		var pw := _rng.randf_range(PLATFORM_MIN_W, PLATFORM_MAX_W)
 		var pd := _rng.randf_range(PLATFORM_MIN_D, PLATFORM_MAX_D)
 		var ph := 0.4
@@ -58,11 +82,11 @@ func _generate() -> void:
 			_checkpoints.append(pos + Vector3(0, 1.0, 0))
 			_make_checkpoint_marker(pos)
 
-		if i == SEGMENT_COUNT - 1:
+		if i == _segments - 1:
 			_make_finish(pos)
 			break
 
-		var gap := _rng.randf_range(1.5, MAX_GAP_H)
+		var gap := _rng.randf_range(1.5, _max_gap)
 		var dy := _rng.randf_range(-MAX_HEIGHT_DOWN, MAX_HEIGHT_UP)
 		var turn := _rng.randf_range(-0.4, 0.4)
 		# Steer back toward the room centre if we're drifting near a wall, so the
@@ -77,9 +101,9 @@ func _generate() -> void:
 		pos.x = clampf(pos.x, -ROOM_HALF + 6.0, ROOM_HALF - 6.0)
 		pos.z = clampf(pos.z, -ROOM_HALF + 6.0, ROOM_HALF - 6.0)
 
-		if i > 3 and _rng.randf() < 0.2:
+		if i > 3 and _rng.randf() < _obstacle_chance:
 			_make_obstacle(pos, pw)
-		if i > 5 and _rng.randf() < 0.15:
+		if i > 5 and _rng.randf() < _mover_chance:
 			_make_moving_platform(pos, pw, pd)
 
 
@@ -230,9 +254,11 @@ func get_checkpoint(index: int) -> Vector3:
 var _reached := 0
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	if not _active or _spawner == null:
 		return
+	if not _finished:
+		_elapsed += delta
 	var lp = _spawner.get("local_player")
 	if lp == null or not is_instance_valid(lp):
 		return
@@ -254,4 +280,5 @@ func _process(_delta: float) -> void:
 func _on_finish_body(body: Node) -> void:
 	var owner_node := body.get_parent() if body.get_parent() else body
 	if "peer_id" in owner_node:
+		_finished = true
 		course_finished.emit(owner_node.peer_id)
