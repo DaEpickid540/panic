@@ -9,7 +9,6 @@ var _errors: Array[String] = []
 func _ready() -> void:
 	layer = 100
 	_label = Label.new()
-	_label.anchor_right = 1.0
 	_label.position = Vector2(10, 4)
 	_label.size = Vector2(1200, 200)
 	_label.add_theme_font_size_override("font_size", 14)

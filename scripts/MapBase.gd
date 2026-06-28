@@ -1200,8 +1200,10 @@ func _build_parkour_void() -> void:
 	fmi.material_override = fmat
 	floor_body.add_child(fmi)
 
-	# White repeating walls + ceiling.
-	var wall_mat := _mat(white, "tile")
+	# Clean matte-white walls + ceiling (no texture — a true white void).
+	var wall_mat := StandardMaterial3D.new()
+	wall_mat.albedo_color = white
+	wall_mat.roughness = 0.95
 	var specs := [
 		[Vector3(0, room_h * 0.5, -h), Vector3(h * 2, room_h, 0.6)],
 		[Vector3(0, room_h * 0.5, h), Vector3(h * 2, room_h, 0.6)],
@@ -1230,7 +1232,7 @@ func _build_parkour_void() -> void:
 	cmesh.size = Vector3(h * 2, 0.6, h * 2)
 	ceil_mi.mesh = cmesh
 	ceil_mi.position = Vector3(0, room_h, 0)
-	ceil_mi.material_override = _mat(white, "tile")
+	ceil_mi.material_override = wall_mat
 	add_child(ceil_mi)
 
 	# Even white lighting from above.
