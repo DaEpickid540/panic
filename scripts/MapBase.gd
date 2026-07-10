@@ -240,7 +240,7 @@ func _build_environment() -> void:
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	env.ambient_light_color = p["amb"]
 	env.ambient_light_energy = p["ae"]
-	env.fog_enabled = true
+	env.fog_enabled = not TouchInput.enabled
 	env.fog_light_color = p["fog"]
 	env.fog_density = p["fd"] * clampf(GameManager.settings_fog, 0.1, 1.0)
 	var we := WorldEnvironment.new()

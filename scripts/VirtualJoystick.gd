@@ -27,17 +27,24 @@ func _input(event: InputEvent) -> void:
 	if not visible:
 		return
 	if event is InputEventScreenTouch:
-		if event.pressed and _touch_index == -1:
-			if _hit_test(event.position):
+		if event.pressed:
+			# Only capture a NEW touch when idle AND it lands on the joystick base.
+			# Any other finger is completely ignored so it can reach buttons freely.
+			if _touch_index == -1 and _hit_test(event.position):
 				_touch_index = event.index
 				_move_knob(event.position)
 				get_viewport().set_input_as_handled()
-		elif not event.pressed and event.index == _touch_index:
-			_release()
+			# else: different finger or not on joystick — let it through untouched.
+		else:
+			# Release only our tracked finger; all others pass through.
+			if event.index == _touch_index:
+				_release()
+				get_viewport().set_input_as_handled()
+	elif event is InputEventScreenDrag:
+		# Only update knob for the finger we are tracking.
+		if event.index == _touch_index:
+			_move_knob(event.position)
 			get_viewport().set_input_as_handled()
-	elif event is InputEventScreenDrag and event.index == _touch_index:
-		_move_knob(event.position)
-		get_viewport().set_input_as_handled()
 	# Mouse fallback so it works in the editor too.
 	elif event is InputEventMouseButton:
 		if event.pressed and _hit_test(event.global_position):

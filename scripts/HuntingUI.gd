@@ -535,19 +535,35 @@ static func _hud_panel_style(alpha: float) -> StyleBoxFlat:
 # MOBILE LAYOUT ADJUSTMENT
 # ─────────────────────────────────────────────────────────────────────────────
 
-const MOBILE_BAR_SHIFT := -175.0
-
 func _mobile_adjust_layout() -> void:
-	for node in [_battery, _battery_label, _dash_bar, _dash_label,
-				 _throw_bar, _throw_label, _stamina_bar, _stamina_label,
-				 _hp_bar, _hp_label]:
-		if node != null:
-			node.offset_top += MOBILE_BAR_SHIFT
-			node.offset_bottom += MOBILE_BAR_SHIFT
+	# Reanchor all stat bars to the top-left corner so they stack below the
+	# role/timer row (~y=84) and never overlap the bottom-left joystick area.
+	# Throw and Stamina share the same vertical slot — they're role-exclusive.
+	_reanchor_top(_hp_label,      90.0,  110.0)
+	_reanchor_top(_hp_bar,        110.0, 124.0)
+	_reanchor_top(_throw_label,   127.0, 147.0)
+	_reanchor_top(_throw_bar,     147.0, 161.0)
+	_reanchor_top(_stamina_label, 127.0, 147.0)
+	_reanchor_top(_stamina_bar,   147.0, 161.0)
+	_reanchor_top(_dash_label,    164.0, 184.0)
+	_reanchor_top(_dash_bar,      184.0, 198.0)
+	_reanchor_top(_battery_label, 201.0, 221.0)
+	_reanchor_top(_battery,       221.0, 235.0)
 	if _bars_panel:
-		_bars_panel.offset_top += MOBILE_BAR_SHIFT
-		_bars_panel.offset_bottom += MOBILE_BAR_SHIFT
+		_bars_panel.anchor_top    = 0.0
+		_bars_panel.anchor_bottom = 0.0
+		_bars_panel.offset_top    = 84.0
+		_bars_panel.offset_bottom = 241.0
 	_hint.visible = false
+
+
+func _reanchor_top(node: Control, top: float, bottom: float) -> void:
+	if node == null:
+		return
+	node.anchor_top    = 0.0
+	node.anchor_bottom = 0.0
+	node.offset_top    = top
+	node.offset_bottom = bottom
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1002,33 +1018,58 @@ func _hunter_proximity() -> float:
 # MOBILE CONTROLS
 # ─────────────────────────────────────────────────────────────────────────────
 
-func _wire_mobile_buttons() -> void:
-	var light_btn:  Button = _mobile_btns.get_node("FlashlightBtn")
-	var jump_btn:   Button = _mobile_btns.get_node("JumpBtn")
-	var sprint_btn: Button = _mobile_btns.get_node("SprintBtn")
-	var dash_btn:   Button = _mobile_btns.get_node("DashBtn")
-	var throw_btn:  Button = _mobile_btns.get_node("ThrowBtn")
+## Inject a real InputEventAction so both _physics_process (is_action_just_pressed)
+## and _unhandled_input (event.is_action_pressed) handlers receive it.
+## Input.action_press/release only mutate state; they never emit an event.
+func _mobile_fire(action: String, pressed: bool) -> void:
+	var ev := InputEventAction.new()
+	ev.action   = action
+	ev.pressed  = pressed
+	ev.strength = 1.0 if pressed else 0.0
+	Input.parse_input_event(ev)
 
-	light_btn.button_down.connect(func(): Input.action_press("flashlight"))
-	light_btn.button_up.connect(func():   Input.action_release("flashlight"))
-	jump_btn.button_down.connect(func(): Input.action_press("jump"))
-	jump_btn.button_up.connect(func():   Input.action_release("jump"))
-	sprint_btn.button_down.connect(func(): Input.action_press("sprint"))
-	sprint_btn.button_up.connect(func():   Input.action_release("sprint"))
-	dash_btn.button_down.connect(func(): Input.action_press("dash"))
-	dash_btn.button_up.connect(func():   Input.action_release("dash"))
-	throw_btn.button_down.connect(func(): Input.action_press("throw"))
-	throw_btn.button_up.connect(func():   Input.action_release("throw"))
+
+func _wire_mobile_buttons() -> void:
+	var light_btn:    Button = _mobile_btns.get_node("FlashlightBtn")
+	var jump_btn:     Button = _mobile_btns.get_node("JumpBtn")
+	var sprint_btn:   Button = _mobile_btns.get_node("SprintBtn")
+	var dash_btn:     Button = _mobile_btns.get_node("DashBtn")
+	var throw_btn:    Button = _mobile_btns.get_node("ThrowBtn")
+	var interact_btn: Button = _mobile_btns.get_node("InteractBtn")
+	var strike_btn:   Button = _mobile_btns.get_node("StrikeBtn")
+
+	light_btn.button_down.connect(func(): _mobile_fire("flashlight", true))
+	light_btn.button_up.connect(func():   _mobile_fire("flashlight", false))
+	jump_btn.button_down.connect(func(): _mobile_fire("jump", true))
+	jump_btn.button_up.connect(func():   _mobile_fire("jump", false))
+	sprint_btn.button_down.connect(func(): _mobile_fire("sprint", true))
+	sprint_btn.button_up.connect(func():   _mobile_fire("sprint", false))
+	dash_btn.button_down.connect(func(): _mobile_fire("dash", true))
+	dash_btn.button_up.connect(func():   _mobile_fire("dash", false))
+	throw_btn.button_down.connect(func(): _mobile_fire("throw", true))
+	throw_btn.button_up.connect(func():   _mobile_fire("throw", false))
+	interact_btn.button_down.connect(func(): _mobile_fire("grab", true))
+	interact_btn.button_up.connect(func():   _mobile_fire("grab", false))
+	strike_btn.button_down.connect(func(): _mobile_fire("capture", true))
+	strike_btn.button_up.connect(func():   _mobile_fire("capture", false))
 
 	GameManager.role_assigned.connect(func(id, r):
 		if id != NetworkManager.local_peer_id:
 			return
 		var is_hunter: bool = (r == GameManager.Role.HUNTER)
-		var is_ghost: bool = (r == GameManager.Role.GHOST)
-		light_btn.visible  = not is_ghost
-		dash_btn.visible   = is_hunter
-		throw_btn.visible  = is_hunter
-		sprint_btn.visible = not is_hunter and not is_ghost)
+		var is_ghost:  bool = (r == GameManager.Role.GHOST)
+		# Flashlight: all roles (ghost uses it to summon a fake killer).
+		light_btn.visible    = true
+		# Sprint doubles as "descend" for ghosts; hunters use dash to burst instead.
+		sprint_btn.visible   = not is_hunter
+		# Throw doubles as lightning charge for ghosts.
+		throw_btn.visible    = is_hunter or is_ghost
+		# Dash only for hunter.
+		dash_btn.visible     = is_hunter
+		# Interact (grab action): lore reading for hunter/hunted, ghost-grip for ghost.
+		interact_btn.visible = true
+		# Strike (melee capture): hunter only.
+		strike_btn.visible   = is_hunter)
 
 
 func _add_look_region() -> void:

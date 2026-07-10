@@ -269,7 +269,7 @@ anchor_left = 1.0
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = -560.0
+offset_left = -810.0
 offset_top = -200.0
 offset_right = -16.0
 offset_bottom = -16.0
@@ -315,6 +315,22 @@ size_flags_vertical = 8
 theme_override_font_sizes/font_size = 16
 text = "THROW
 (✕)"
+
+[node name="InteractBtn" type="Button" parent="MobileButtons"]
+custom_minimum_size = Vector2(100, 100)
+layout_mode = 2
+size_flags_vertical = 8
+theme_override_font_sizes/font_size = 16
+text = "USE
+(E)"
+
+[node name="StrikeBtn" type="Button" parent="MobileButtons"]
+custom_minimum_size = Vector2(100, 100)
+layout_mode = 2
+size_flags_vertical = 8
+theme_override_font_sizes/font_size = 16
+text = "STRIKE
+(⚔)"
 
 [node name="Jumpscare" type="TextureRect" parent="."]
 visible = false

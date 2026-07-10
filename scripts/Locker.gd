@@ -11,7 +11,6 @@ extends Node3D
 
 const INTERACT_DIST  := 1.8
 const HIDE_TIME      := 30.0
-const INTERACTION_KEY := KEY_E
 
 @export var locker_color: Color = Color(0.22, 0.18, 0.16)
 
@@ -48,15 +47,13 @@ func _process(delta: float) -> void:
 			return
 		# Keep player locked in place.
 		lp.set("hidden_in_locker", true)
-		# Check for voluntary exit.
-		if Input.is_key_pressed(INTERACTION_KEY) and _hide_timer < HIDE_TIME - 0.3:
-			# Small cooldown so you can't re-press E immediately after entering.
-			if Input.is_key_pressed(INTERACTION_KEY):
-				_eject()
+		# Check for voluntary exit (small cooldown so entering doesn't instantly re-eject).
+		if Input.is_action_pressed("grab") and _hide_timer < HIDE_TIME - 0.3:
+			_eject()
 	else:
 		# Show hint if close enough (handled by HuntingUI reading this node's data).
 		if dist < INTERACT_DIST and lp.get("role") == GameManager.Role.HUNTED:
-			if Input.is_key_pressed(INTERACTION_KEY):
+			if Input.is_action_pressed("grab"):
 				_enter(lp)
 
 

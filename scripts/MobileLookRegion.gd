@@ -30,6 +30,12 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.pressed and _touch_idx == -1:
 			var vp_size := get_viewport_rect().size
 			if event.position.x >= vp_size.x * 0.5:
+				# Guard: skip touches that land on an interactive GUI control
+				# (e.g. mobile action buttons). When emulate_mouse_from_touch is on,
+				# Button may only accept_event() on the synthetic mouse event, leaving
+				# the raw ScreenTouch unhandled even though a button was hit.
+				if _hits_gui_control(event.position):
+					return
 				_touch_idx = event.index
 				get_viewport().set_input_as_handled()
 		elif not event.pressed and event.index == _touch_idx:
@@ -39,3 +45,16 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event is InputEventScreenDrag and event.index == _touch_idx:
 		TouchInput.look_delta += event.relative * SENSITIVITY
 		get_viewport().set_input_as_handled()
+
+
+## Returns true if screen_pos is inside the mobile action-button bar so we
+## know the touch belongs to a button and must not be claimed as a look drag.
+## gui_get_hovered_control() tracks the mouse cursor position, not touch
+## position, so it gives wrong results when a second finger hits a button.
+## A direct rect test against the known button container is reliable.
+func _hits_gui_control(screen_pos: Vector2) -> bool:
+	var btns: Control = get_parent().get_node_or_null("MobileButtons")
+	if btns != null and btns.visible:
+		if btns.get_global_rect().has_point(screen_pos):
+			return true
+	return false
