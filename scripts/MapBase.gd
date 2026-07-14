@@ -7,8 +7,9 @@ class_name MapBase
 ## pitched roofs), its own palette, ground tint and lighting — while keeping the
 ## same size, collision footprint and spawn layout for fair play.
 
-# MAZE is appended (=6) so existing scenes' integer `style` values stay valid.
-enum Style { URBAN, FOREST, WAREHOUSE, MANSION, NEON, GRAVEYARD, MAZE, DUNGEON, SCHOOL, CAVE, LAB, PARKOUR_VOID }
+# Styles are appended (never reordered) so existing scenes' integer `style`
+# values stay valid. CABIN replaced URBAN in-place (same value = 0); CITY is new.
+enum Style { CABIN, FOREST, WAREHOUSE, MANSION, NEON, GRAVEYARD, MAZE, DUNGEON, SCHOOL, CAVE, LAB, PARKOUR_VOID, CITY }
 
 const ARENA_SIZE := 200.0
 const HALF := ARENA_SIZE * 0.5
@@ -25,9 +26,19 @@ const RED := Color(0.8, 0.0, 0.0)
 
 ## Per-style colour palettes.
 const PALETTES := {
-	Style.URBAN: [
-		Color(0.93, 0.36, 0.27), Color(0.98, 0.74, 0.27), Color(0.36, 0.78, 0.62),
-		Color(0.39, 0.62, 0.93), Color(0.72, 0.52, 0.90), Color(0.62, 0.80, 0.36),
+	Style.CABIN: [
+		Color(0.36, 0.24, 0.14),  # log brown
+		Color(0.28, 0.18, 0.11),  # dark timber
+		Color(0.25, 0.34, 0.20),  # moss green
+		Color(0.42, 0.42, 0.44),  # fieldstone
+		Color(0.45, 0.20, 0.12),  # rusty red
+	],
+	Style.CITY: [
+		Color(0.28, 0.29, 0.33),  # wet asphalt gray
+		Color(0.45, 0.22, 0.18),  # old brick
+		Color(0.55, 0.56, 0.58),  # concrete
+		Color(0.20, 0.24, 0.30),  # steel blue
+		Color(0.60, 0.50, 0.25),  # sodium-lamp amber
 	],
 	Style.FOREST: [
 		Color(0.27, 0.45, 0.22), Color(0.34, 0.52, 0.26), Color(0.45, 0.36, 0.22),
@@ -80,7 +91,7 @@ const PALETTES := {
 	],
 }
 
-@export var style: Style = Style.URBAN
+@export var style: Style = Style.CABIN
 @export var ground_color: Color = Color(0.35, 0.35, 0.40)
 @export var obstacle_color: Color = Color(0.18, 0.18, 0.20)
 @export var seed_value: int = 1337
@@ -169,12 +180,20 @@ func _ready() -> void:
 	# thick exterior walls, a ceiling, and interior rooms/corridors.
 	_indoor = style in INDOOR_STYLES
 	_half = INDOOR_HALF if _indoor else HALF
+	# Per-style footprint tweaks: the lab is deliberately tighter than the other
+	# indoor maps (cramped RE-style corridors); the city is a mid-size block grid.
+	if style == Style.LAB:
+		_half = 46.0
+	elif style == Style.CITY:
+		_half = 72.0
 	match style:
 		Style.DUNGEON, Style.MAZE: _wall_tex = "brick"
 		Style.MANSION:             _wall_tex = "sbswood"
 		Style.SCHOOL:              _wall_tex = "concrete"
 		Style.CAVE:                _wall_tex = "rock"
 		Style.LAB:                 _wall_tex = "tile"
+		Style.CABIN:               _wall_tex = "sbswood"
+		Style.CITY:                _wall_tex = "brick"
 		_:                         _wall_tex = "concrete"
 	if style == Style.CAVE:
 		_shell_tex = "rock"
@@ -184,6 +203,8 @@ func _ready() -> void:
 	if _indoor:
 		_build_ceiling()
 	_build_obstacles()
+	_spawn_round_doors()
+	_spawn_gen_markers()
 	_build_spawns()
 
 
@@ -218,9 +239,18 @@ func _env_params() -> Dictionary:
 			return {"amb": Color(0.05, 0.06, 0.07), "ae": 0.10, "sun": Color(0.12, 0.14, 0.18),
 				"se": 0.08, "fog": Color(0.02, 0.025, 0.03), "fd": 0.035, "accent": Color(0.3, 0.7, 0.9)}
 		Style.LAB:
-			# Bright clinical lighting — the horror is the gore, not the darkness.
-			return {"amb": Color(0.75, 0.78, 0.82), "ae": 0.85, "sun": Color(0.90, 0.92, 0.95),
-				"se": 0.90, "fog": Color(0.85, 0.85, 0.88), "fd": 0.004, "accent": Color(0.9, 0.95, 1.0)}
+			# Dim, failing facility power — cold pools of flickering fluorescent
+			# light in the dark. Resident-Evil basement lab, not a bright clinic.
+			return {"amb": Color(0.10, 0.11, 0.13), "ae": 0.16, "sun": Color(0.20, 0.23, 0.28),
+				"se": 0.10, "fog": Color(0.035, 0.04, 0.05), "fd": 0.022, "accent": Color(0.55, 0.75, 0.85)}
+		Style.CABIN:
+			# Moonless woods around a lamplit cabin — the trees swallow the light.
+			return {"amb": Color(0.06, 0.07, 0.07), "ae": 0.10, "sun": Color(0.20, 0.26, 0.34),
+				"se": 0.12, "fog": Color(0.025, 0.032, 0.028), "fd": 0.030, "accent": Color(1.0, 0.62, 0.28)}
+		Style.CITY:
+			# Dead city at 3 AM: sodium streetlights, wet asphalt, low haze.
+			return {"amb": Color(0.07, 0.08, 0.10), "ae": 0.12, "sun": Color(0.20, 0.22, 0.30),
+				"se": 0.12, "fog": Color(0.03, 0.032, 0.04), "fd": 0.022, "accent": Color(0.95, 0.62, 0.25)}
 		Style.NEON:
 			return {"amb": Color(0.06, 0.06, 0.11), "ae": 0.11, "sun": Color(0.16, 0.18, 0.32),
 				"se": 0.11, "fog": Color(0.03, 0.02, 0.07), "fd": 0.030, "accent": Color(0.10, 0.85, 0.85)}
@@ -364,7 +394,11 @@ func _build_obstacles() -> void:
 		Style.CAVE:
 			_build_cave_layout()                   # rocky cavern lit by crystals
 		Style.LAB:
-			_build_lab_layout()                    # bright clinical horror lab
+			_build_lab_layout()                    # cramped RE-style research lab
+		Style.CABIN:
+			_build_cabin_layout()                  # cabin in the dark woods
+		Style.CITY:
+			_build_city_layout()                   # night-time city block
 		_:
 			if _indoor:
 				_build_indoor_layout()
@@ -984,158 +1018,169 @@ func _make_cave_pool(pos: Vector3) -> void:
 
 
 func _build_lab_layout() -> void:
+	# ── Resident-Evil-style research lab: tight corridors, small clinical rooms,
+	# dim flickering fluorescents. Plan (footprint half = 46):
+	#   corridor A (E-W) at z ≈ -15.5 · corridor B (E-W) at z ≈ +15.5
+	#   corridor C (N-S spine) at x = 0 — its south end is the entry checkpoint.
+	#   NW specimen storage · NE containment cells · W main lab floor
+	#   E server room + operating theater · SW offices/break room · SE morgue.
 	var h := _half
-	var wh := WALL_HEIGHT * 0.5
-	var wy := WALL_HEIGHT * 0.25
-	var gray := Color(0.72, 0.72, 0.74)
-	var steel := Color(0.55, 0.58, 0.62)
-	var dw := 3.0  # doorway half-width
+	var gray := Color(0.60, 0.62, 0.65)
+	var steel := Color(0.45, 0.48, 0.52)
 
-	var hall_d := 10.0
-	var nz := -h + hall_d        # -42  north hallway south edge
-	var sz := h - hall_d         #  42  south hallway north edge
-	var mid := 0.0
-	var caf_r := -h + 22.0
-	var lab_l := -h + 24.0
-	var div_x := -2.0
-	var cont_r := 28.0
-	var comp_l := 30.0
+	var an := -18.0    # corridor A north wall
+	var asw := -13.0   # corridor A south wall
+	var bn := 13.0     # corridor B north wall
+	var bsw := 18.0    # corridor B south wall
+	var cw := -2.5     # corridor C west wall
+	var ce := 2.5      # corridor C east wall
 
-	# ── NORTH HALLWAY south wall (with doorways into each room) ──
-	# Segments: cafeteria door | wall | lab1 door | wall | containment door | wall | comp door
-	_lab_wall_z(nz, -h + 4, caf_r - dw, gray)        # west of caf door
-	_lab_wall_z(nz, caf_r + dw, lab_l - 1, gray)      # between caf and lab1
-	_lab_wall_z(nz, lab_l + dw + 6, div_x - dw, gray) # between lab1 door and containment door
-	_lab_wall_z(nz, div_x + dw + 4, cont_r - 1, gray) # between containment door and comp
-	_lab_wall_z(nz, comp_l - 1, comp_l + dw + 6, gray)
-	_lab_wall_z(nz, comp_l + dw + 10, h - 4, gray)
+	# ── CORRIDOR A walls (every doorway gap becomes a dynamic-door spot) ──
+	_plan_wall_z(an, -h + 2, cw, [[-24.0, true]], gray, "tile")                       # specimen storage
+	_plan_wall_z(an, ce, h - 2, [[9.5, false], [24.0, true], [38.5, true]], gray, "tile")  # cells
+	_plan_wall_z(asw, -h + 2, cw, [[-24.0, true]], gray, "tile")                      # main lab (N)
+	_plan_wall_z(asw, ce, h - 2, [[13.0, true], [35.0, true]], gray, "tile")          # server / theater
 
-	# ── SOUTH HALLWAY north wall (with doorways) ──
-	_lab_wall_z(sz, -h + 4, caf_r - dw, gray)
-	_lab_wall_z(sz, caf_r + dw, lab_l - 1, gray)
-	_lab_wall_z(sz, lab_l + dw + 6, div_x - dw, gray)
-	_lab_wall_z(sz, div_x + dw + 4, cont_r - 1, gray)
-	_lab_wall_z(sz, comp_l - 1, comp_l + dw + 6, gray)
-	_lab_wall_z(sz, comp_l + dw + 10, h - 4, gray)
+	# ── CORRIDOR B walls ──
+	_plan_wall_z(bn, -h + 2, cw, [[-24.0, false]], gray, "tile")                      # main lab (S)
+	_plan_wall_z(bn, ce, h - 2, [[13.0, true], [35.0, false]], gray, "tile")
+	_plan_wall_z(bsw, -h + 2, cw, [[-35.0, false], [-13.0, true]], gray, "tile")      # office / break room
+	_plan_wall_z(bsw, ce, h - 2, [[24.0, true], [38.5, false]], gray, "tile")         # morgue doors
 
-	# ── CAFETERIA (far west) ──
-	# East wall with door to hallways
-	_lab_wall_x(caf_r, nz + 1, mid - dw, gray)
-	_lab_wall_x(caf_r, mid + dw, sz - 1, gray)
-	for row in 4:
-		for col in 2:
-			_make_cafeteria_table(Vector3(-h + 6 + col * 9.0, 0, nz + 6 + row * 8.0), Color(0.78, 0.78, 0.80))
-	_make_table_body(Vector3(-h + 12, 0, nz + 20))
-	_make_wall_text(Vector3(-h + 2.5, 3.0, mid), "CAFETERIA", Color(0.5, 0.42, 0.42), Vector3(0, PI * 0.5, 0))
+	# ── CORRIDOR C spine walls (open where corridors A/B cross) ──
+	_plan_wall_x(cw, -h + 2, an, [[-32.0, false]], gray, "tile")                      # specimen (E door)
+	_plan_wall_x(cw, asw, bn, [[0.0, false]], gray, "tile")                           # main lab (E door)
+	_plan_wall_x(cw, bsw, h - 2, [[32.0, false]], gray, "tile")                       # break room (E door)
+	_plan_wall_x(ce, asw, bn, [[0.0, false]], gray, "tile")                           # server (W door)
+	_plan_wall_x(ce, bsw, h - 2, [[26.0, true]], gray, "tile")                        # morgue (W door)
+	# Cell 1's spine wall is BREACHED — something got out. Rubble, not a door.
+	_lab_wall_x(ce, -h + 2, -33.0, gray)
+	_lab_wall_x(ce, -27.0, an, gray)
+	_make_cave_rubble(Vector3(ce + 1.5, 0, -30.0), gray.darkened(0.3))
+	_make_blood_streak(Vector3(0.0, 0, -30.0), Vector3(-1, 0, 0.2), 7.0)
 
-	# ── LAB 1 (top center-left) ──
-	# Left wall
-	_lab_wall_x(lab_l, nz + 1, (nz + mid) * 0.5 - dw, gray)
-	_lab_wall_x(lab_l, (nz + mid) * 0.5 + dw, mid - 1, gray)
-	# Bottom wall with door
-	_lab_wall_z(mid, lab_l + 1, (lab_l + div_x) * 0.5 - dw, gray)
-	_lab_wall_z(mid, (lab_l + div_x) * 0.5 + dw, div_x - 1, gray)
-	# Right wall
-	_lab_wall_x(div_x, nz + 1, mid - 1, gray)
-	var lab1_cx := (lab_l + div_x) * 0.5
-	var lab1_cz := (nz + mid) * 0.5
-	_make_box(Vector3(lab1_cx, 0.9, lab1_cz - 4), Vector3(5.0, 0.9, 1.2), steel, "metal")
-	for j in 4:
-		_make_test_tube(Vector3(lab1_cx + _rng.randf_range(-2, 2), 0.92, lab1_cz - 4 + _rng.randf_range(-0.4, 0.4)), _rng.randf() < 0.35)
-	_make_terminal(Vector3(lab1_cx + 3, 1.5, lab1_cz - 6),
-		"LAB 1 — SAMPLE LOG\n\nSubject response: aggressive\nCognitive decline: rapid\nViral load: increasing\nRecommendation: SEAL ROOM")
-	_make_puddle(Vector3(lab1_cx - 2, 0.01, lab1_cz + 3), 1.2, Color(0.2, 0.5, 0.12, 0.6))
+	# ── Room dividers ──
+	_lab_wall_x(17.0, -h + 2, an, gray)                              # cell 1 | cell 2
+	_lab_wall_x(31.5, -h + 2, an, gray)                              # cell 2 | cell 3
+	_plan_wall_x(24.0, asw, bn, [[0.0, true]], gray, "tile")         # server ↔ theater
+	_plan_wall_x(-24.0, bsw, h - 2, [[32.0, true]], gray, "tile")    # office ↔ break room
 
-	# ── CONTAINMENT (top center-right) ──
-	var cont_cx := (div_x + cont_r) * 0.5
-	var cont_cz := (nz + mid) * 0.5
-	# Right wall
-	_lab_wall_x(cont_r, nz + 1, mid - 1, gray)
-	# Bottom wall with door
-	_lab_wall_z(mid, div_x + 1, cont_cx - dw, gray)
-	_lab_wall_z(mid, cont_cx + dw, cont_r - 1, gray)
-	_make_wall_text(Vector3(cont_cx, 3.2, nz + 1.5), "CONTAINMENT — AUTHORIZED ONLY", Color(0.85, 0.08, 0.08), Vector3(0, 0, 0))
-	for i in 3:
-		var broken := (i == 1)
-		_make_containment_cylinder(Vector3(div_x + 5 + i * 8.0, 0, cont_cz - 5), broken)
-	for i in 2:
-		_make_containment_cylinder(Vector3(div_x + 9 + i * 8.0, 0, cont_cz + 5), false)
+	# ═══ NW: SPECIMEN STORAGE ═══
+	for row in 3:
+		_make_specimen_shelf(Vector3(-38.0 + row * 11.0, 0, -38.0), false)
+		_make_specimen_shelf(Vector3(-38.0 + row * 11.0, 0, -27.0), false)
+	_make_containment_cylinder(Vector3(-8.0, 0, -40.0), false)
+	_make_containment_cylinder(Vector3(-8.0, 0, -25.0), true)
+	_make_wall_text(Vector3(-24.0, 3.4, -h + 2.6), "SPECIMEN STORAGE — KEEP SEALED",
+		Color(0.55, 0.7, 0.75), Vector3.ZERO)
+	_make_floor_note(Vector3(-30.0, 0.02, -33.0),
+		"Inventory note: jars 40-61 moved to\ncold storage. Jar 62 was EMPTY when\nI got here. Nobody signed it out.")
+	_add_gen_spot(Vector3(-20.0, 0, -40.0))
 
-	# ── LAB 2 (bottom center-left) ──
-	_lab_wall_x(lab_l, mid + 1, (mid + sz) * 0.5 - dw, gray)
-	_lab_wall_x(lab_l, (mid + sz) * 0.5 + dw, sz - 1, gray)
-	_lab_wall_z(mid, lab_l + 1, (lab_l + div_x) * 0.5 - dw, gray)
-	_lab_wall_z(mid, (lab_l + div_x) * 0.5 + dw, div_x - 1, gray)
-	_lab_wall_x(div_x, mid + 1, sz - 1, gray)
-	var lab2_cx := (lab_l + div_x) * 0.5
-	var lab2_cz := (mid + sz) * 0.5
-	_make_box(Vector3(lab2_cx, 0.9, lab2_cz - 3), Vector3(5.0, 0.9, 1.2), steel, "metal")
-	for j in 4:
-		_make_test_tube(Vector3(lab2_cx + _rng.randf_range(-2, 2), 0.92, lab2_cz - 3 + _rng.randf_range(-0.4, 0.4)), _rng.randf() < 0.35)
-	_make_terminal(Vector3(lab2_cx + 3, 1.5, lab2_cz - 5),
-		"LAB 2 — VIRAL ANALYSIS\n\nNeurovirus Type-7 confirmed\nFrontal lobe targeting verified\nTransmission: saliva + blood\nNo cure identified")
-	_make_puddle(Vector3(lab2_cx + 1, 0.01, lab2_cz + 4), 1.0, Color(0.5, 0.06, 0.03, 0.7))
+	# ═══ NE: CONTAINMENT CELLS ═══
+	for cell in 3:
+		var cell_x := 9.75 + cell * 14.5
+		_make_box(Vector3(cell_x + 3.5, 0.35, -41.0), Vector3(2.4, 0.7, 1.1), Color(0.35, 0.36, 0.4), "metal")
+		_make_box(Vector3(cell_x - 3.0, 0.5, -40.0), Vector3(1.0, 1.0, 1.0), Color(0.3, 0.31, 0.34), "metal")
+	# Cell 1: breached — shattered tank, corpse, gore trail into the spine.
+	_make_containment_cylinder(Vector3(9.5, 0, -33.0), true)
+	_make_corpse_prop(Vector3(12.0, 0, -38.0))
+	_make_blood_splatter(Vector3(16.7, 2.0, -35.0), true)
+	_make_wall_text(Vector3(24.0, 3.4, an + 0.8), "CONTAINMENT — AUTHORIZED PERSONNEL ONLY",
+		Color(0.85, 0.10, 0.10), Vector3.ZERO)
+	var warn: OmniLight3D = FLICKER_SCRIPT.new()
+	warn.light_color = Color(0.9, 0.08, 0.05)
+	warn.light_energy = 1.5
+	warn.omni_range = 18.0
+	warn.position = Vector3(24.0, 6.0, -30.0)
+	add_child(warn)
 
-	# ── LAB 3 (bottom center-right) ──
-	var lab3_l := div_x + 2
-	var lab3_r := cont_r
-	var lab3_cx := (lab3_l + lab3_r) * 0.5
-	var lab3_cz := (mid + sz) * 0.5
-	_lab_wall_z(mid, lab3_l - 1, lab3_cx - dw, gray)
-	_lab_wall_z(mid, lab3_cx + dw, lab3_r - 1, gray)
-	_lab_wall_x(lab3_r, mid + 1, sz - 1, gray)
-	_make_box(Vector3(lab3_cx, 0.9, lab3_cz - 3), Vector3(5.0, 0.9, 1.2), steel, "metal")
-	for j in 4:
-		_make_test_tube(Vector3(lab3_cx + _rng.randf_range(-2, 2), 0.92, lab3_cz - 3 + _rng.randf_range(-0.4, 0.4)), _rng.randf() < 0.4)
-	_make_terminal(Vector3(lab3_cx + 3, 1.5, lab3_cz - 5),
-		"LAB 3 — TREATMENT TRIALS\n\nEvery test subject dies or turns.\nThe virus doesn't kill.\nIt transforms. No going back.\nContainment is the only option.")
+	# ═══ W: MAIN LAB FLOOR ═══
+	for row in 2:
+		var bench_z := -6.0 + row * 12.0
+		_make_lab_bench(Vector3(-33.0, 0, bench_z))
+		_make_lab_bench(Vector3(-15.0, 0, bench_z))
+	_make_operating_table(Vector3(-24.0, 0, 0.0), true)
+	_make_surgical_light(Vector3(-24.0, WALL_HEIGHT * 0.5 - 1.2, 0.0))
+	_make_terminal(Vector3(-42.0, 1.5, -6.0),
+		"LAB FLOOR — SAMPLE LOG\n\nSubject response: aggressive\nCognitive decline: rapid\nViral load: increasing\nRecommendation: SEAL ROOM")
+	_make_puddle(Vector3(-20.0, 0.01, 5.0), 1.2, Color(0.5, 0.06, 0.03, 0.7))
+	_add_gen_spot(Vector3(-40.0, 0, 8.0))
 
-	# ── COMPUTER ROOM (far right) ──
-	_lab_wall_x(comp_l, nz + 1, (nz + mid) * 0.5 - dw, gray)
-	_lab_wall_x(comp_l, (nz + mid) * 0.5 + dw, (mid + sz) * 0.5 - dw, gray)
-	_lab_wall_x(comp_l, (mid + sz) * 0.5 + dw, sz - 1, gray)
-	var comp_cx := (comp_l + h - 4) * 0.5
-	_make_box(Vector3(comp_cx, 0.9, nz + 8), Vector3(5.0, 0.9, 1.0), gray, "wood")
-	_make_terminal(Vector3(comp_cx, 1.5, nz + 7.5),
+	# ═══ E: SERVER ROOM ═══
+	for row in 3:
+		_make_server_rack(Vector3(8.0, 0, -8.0 + row * 8.0), false)
+		_make_server_rack(Vector3(15.0, 0, -8.0 + row * 8.0), false)
+	_make_terminal(Vector3(20.0, 1.5, -10.0),
 		"[FILE_72: CONTAINMENT_LOG]\n\n...Protocol Delta initiated...\n...patient zero accelerated...\n...cognitive deterioration 12 hours...\n[ERROR: DATA SEGMENT CORRUPTED]\n...must seal facility...")
-	_make_box(Vector3(comp_cx, 0.9, mid), Vector3(5.0, 0.9, 1.0), gray, "wood")
-	_make_terminal(Vector3(comp_cx, 1.5, mid - 0.5),
-		"[EXPERIMENT_NOTES] NEURAL-9922\n\nAGGRESSION CENTER: 140% baseline\nCOGNITIVE SHOCK: Full regression\nFrontal lobe replaced by foreign\nautonomic pulses. Subject driven\nentirely by hunting directive.")
-	_make_box(Vector3(comp_cx, 0.9, sz - 8), Vector3(5.0, 0.9, 1.0), gray, "wood")
-	_make_terminal(Vector3(comp_cx, 1.5, sz - 8.5),
-		"OUTBREAK TIMELINE\n\nDay 1: First case\nDay 2: 5 confirmed\nDay 3: 20+\nDay 4: Quarantine\nDay 5: 50+\nDay 6: Containment failure\nDay 7: Everything falls apart")
+	_add_gen_spot(Vector3(11.5, 0, 9.5))
 
-	# ── SEALED DOOR (on Lab 1 / Containment divider) ──
-	_make_box(Vector3(div_x + 0.2, wy, cont_cz), Vector3(0.3, wh, 3.0), steel, "metal")
-	_make_wall_text(Vector3(div_x + 0.5, 1.6, cont_cz - 0.5), "█ █ █", Color(0.5, 0.03, 0.01), Vector3(0, -PI * 0.5, 0))
-	_make_wall_text(Vector3(div_x + 0.5, 2.1, cont_cz + 0.3), "█ █", Color(0.4, 0.02, 0.01), Vector3(0, -PI * 0.5, 0.15))
+	# ═══ E: OPERATING THEATER ═══
+	_make_operating_table(Vector3(31.0, 0, -4.0), true)
+	_make_operating_table(Vector3(38.0, 0, 4.0), false)
+	_make_surgical_light(Vector3(31.0, WALL_HEIGHT * 0.5 - 1.2, -4.0))
+	_make_box(Vector3(43.0, 0.5, 0.0), Vector3(0.9, 1.0, 3.0), steel, "metal")
+	_make_puddle(Vector3(33.0, 0.01, -1.0), 1.6, Color(0.45, 0.03, 0.02, 0.8))
+	_make_blood_streak(Vector3(35.0, 0, 8.0), Vector3(0.2, 0, 1), 6.0)
+	_make_wall_text(Vector3(h - 2.6, 2.8, 0.0),
+		"CYTOPATHIC EFFECTS (CPE)\n\nSyncytia Formation\nCell Lysis via Over-Replication",
+		Color(0.45, 0.1, 0.1), Vector3(0, -PI * 0.5, 0))
+	_add_gen_spot(Vector3(35.0, 0, 9.0))
 
-	# ── DEAD BODIES ──
-	for bp in [Vector3(-h + 8, 0, nz + 4), Vector3(lab1_cx - 4, 0, lab1_cz + 6),
-			Vector3(lab3_cx + 2, 0, lab3_cz + 5), Vector3(comp_cx - 2, 0, mid + 6),
-			Vector3(0, 0, sz + 3), Vector3(cont_cx - 3, 0, cont_cz + 3)]:
-		_make_corpse_prop(bp)
+	# ═══ SW: OFFICES ═══
+	for dx in [-40.0, -34.0]:
+		for dz in [26.0, 34.0]:
+			_make_desk(Vector3(dx, 0, dz), Color(0.4, 0.3, 0.2))
+	_make_box(Vector3(-43.5, 1.0, 42.0), Vector3(1.0, 2.0, 3.0), Color(0.35, 0.37, 0.4), "metal")
+	_make_terminal(Vector3(-40.0, 1.5, 42.0),
+		"[EXPERIMENT_NOTES] NEURAL-9922\n\nAGGRESSION CENTER: 140% baseline\nCOGNITIVE SHOCK: Full regression\nSubject driven entirely by\nhunting directive.")
+	_add_gen_spot(Vector3(-30.0, 0, 42.0))
 
-	for i in 12:
+	# ═══ SW: BREAK ROOM ═══
+	_make_cafeteria_table(Vector3(-16.0, 0, 28.0), Color(0.78, 0.78, 0.80))
+	_make_cafeteria_table(Vector3(-16.0, 0, 38.0), Color(0.78, 0.78, 0.80))
+	_make_vending_machine(Vector3(-6.0, 0, 43.5))
+	_make_locker_bank(Vector3(-10.0, 0, bsw + 1.2), true)
+	_make_table_body(Vector3(-16.0, 0, 33.0))
+	_add_gen_spot(Vector3(-8.0, 0, 30.0))
+
+	# ═══ SE: MORGUE ═══
+	_make_morgue_drawers(Vector3(24.0, 0, h - 3.4))
+	_make_gurney(Vector3(14.0, 0, 30.0), true)
+	_make_gurney(Vector3(30.0, 0, 26.0), false)
+	_make_gurney(Vector3(38.0, 0, 34.0), true)
+	_make_wall_text(Vector3(24.0, 3.2, bsw + 0.8), "MORGUE — CAPACITY EXCEEDED",
+		Color(0.6, 0.62, 0.68), Vector3.ZERO)
+	_make_puddle(Vector3(20.0, 0.01, 34.0), 1.1, Color(0.42, 0.03, 0.02, 0.75))
+	_add_gen_spot(Vector3(36.0, 0, 24.0))
+
+	# ═══ S: ENTRY SECURITY CHECKPOINT (corridor C, south end) ═══
+	_make_security_arch(Vector3(0.0, 0, 30.0))
+	_make_box(Vector3(-1.6, 0.55, 38.0), Vector3(1.6, 1.1, 3.0), steel, "metal")
+	_make_terminal(Vector3(-1.6, 1.45, 38.0),
+		"SECURITY TERMINAL\n\nLOCKDOWN: ACTIVE\nEXITS: SEALED\nBADGE READER: OFFLINE\n\nlast entry 03:14 — DR. PRICE")
+	_make_wall_text(Vector3(0.0, 3.6, h - 2.6), "SECURITY CHECKPOINT\nBIOHAZARD LEVEL 4",
+		Color(0.85, 0.65, 0.1), Vector3(0, PI, 0))
+	_add_gen_spot(Vector3(0.0, 0, 24.0))
+
+	# ── Corridor dressing: bodies where they fell, blood on the walls ──
+	_make_corpse_prop(Vector3(-33.0, 0, -15.5))
+	_make_corpse_prop(Vector3(20.0, 0, 15.5))
+	_make_blood_streak(Vector3(-10.0, 0, -15.5), Vector3(1, 0, 0), 9.0)
+	for i in 8:
 		_make_blood_splat(Vector3(_rng.randf_range(-h + 6, h - 6),
 			_rng.randf_range(0.5, 2.5), _rng.randf_range(-h + 6, h - 6)))
 
-	for gx in range(-44, 48, 10):
-		for gz in range(-44, 48, 12):
-			_make_fluorescent_lab(Vector3(gx, WALL_HEIGHT - 0.8, gz))
-
-	_make_wall_text(Vector3(-h + 2.5, 2.8, mid - 10),
-		"SYNERGIC NEUROPHAGE-7\nVIRION ARCHITECTURE\n\nHexagonal Protein Capsid\nLipid Bilayer Envelope\nG-Protein Spikes\nArtificial RNA (Recombinant)",
-		Color(0.1, 0.25, 0.45), Vector3(0, PI * 0.5, 0))
-	_make_wall_text(Vector3(-h + 2.5, 2.8, mid + 10),
-		"GENOME REPLICATION CYCLE\n\nAttachment > Entry > Uncoating\n> Synthesis > Assembly > Release\nError Rate: 0.01%",
-		Color(0.1, 0.25, 0.45), Vector3(0, PI * 0.5, 0))
-	_make_wall_text(Vector3(h - 2.5, 2.8, mid - 8),
-		"CYTOPATHIC EFFECTS (CPE)\n\nSyncytia Formation\nCell Lysis via Over-Replication",
-		Color(0.45, 0.1, 0.1), Vector3(0, -PI * 0.5, 0))
-	_make_wall_text(Vector3(h - 2.5, 2.8, mid + 8),
-		"NEUROTRANSMITTER DISRUPTION\n\nNeuromodulator-K: Blockade\nNeuromod-A: Blockade\nPhage Override: Complete",
-		Color(0.35, 0.08, 0.08), Vector3(0, -PI * 0.5, 0))
+	# ── Flickering fluorescent strips: corridors + one per room. The rest is dark. ──
+	for fx in [-32.0, 0.0, 32.0]:
+		_make_fluorescent_flicker(Vector3(fx, WALL_HEIGHT * 0.5 - 0.6, -15.5))
+		_make_fluorescent_flicker(Vector3(fx, WALL_HEIGHT * 0.5 - 0.6, 15.5))
+	for fz in [-32.0, 32.0]:
+		_make_fluorescent_flicker(Vector3(0.0, WALL_HEIGHT * 0.5 - 0.6, fz))
+	for room_pos in [Vector3(-24, 0, -32), Vector3(24, 0, -32), Vector3(-24, 0, 0),
+			Vector3(13, 0, 0), Vector3(35, 0, 0), Vector3(-35, 0, 32),
+			Vector3(-13, 0, 32), Vector3(24, 0, 32)]:
+		_make_fluorescent_flicker(Vector3(room_pos.x, WALL_HEIGHT * 0.5 - 0.6, room_pos.z))
 
 	_spawn_lab_lore()
 
@@ -1714,66 +1759,141 @@ func _factory_band_spot(atr: float, b: float) -> Vector3:
 	return _factory_ground_spot(atr, b - 3.0)
 
 
-## A tight, well-zoned manor that fills the indoor footprint: a small central
-## hall opens to a railed SECOND FLOOR reached by a grand staircase, with four
-## furnished, chandelier-lit wing rooms around it. The arena's own walls/ceiling
-## are the manor shell.
+## Murder-Mystery-2-style manor with a floor plan you can actually learn:
+##   West wing:  kitchen (NW) · dining room (W) · servant quarters (SW)
+##   East wing:  study (NE) · library (E) · trophy room (SE)
+##   Centre:     ballroom (N) · grand staircase + mezzanine · entrance hall (S)
+## Every doorway is registered as a dynamic-door spot (randomised per round).
 func _build_mansion_layout() -> void:
 	var crimson := Color(0.42, 0.10, 0.12)
 	var gold    := Color(0.72, 0.58, 0.30)
 	var cream   := Color(0.86, 0.80, 0.66)
 	var walnut  := Color(0.26, 0.17, 0.11)
 	var m := _half
-	var fh := 6.0
-	var atr := 13.0                # small central hall
-	var ring := m - atr
-	var wx := (atr + m) * 0.5     # wing-room centre X
-	var wz := m * 0.5            # wing-room centre Z (front/back)
+	var fh := 6.0                       # mezzanine height
 
-	# ── Second floor: a railed balcony around the open central hall ──
-	_make_slab(Vector3(0, fh, (atr + m) * 0.5), Vector2(m * 2.0, ring))
-	_make_slab(Vector3(0, fh, -(atr + m) * 0.5), Vector2(m * 2.0, ring))
-	_make_slab(Vector3((atr + m) * 0.5, fh, 0), Vector2(ring, atr * 2.0))
-	_make_slab(Vector3(-(atr + m) * 0.5, fh, 0), Vector2(ring, atr * 2.0))
-	var rg := 11.0
-	_make_railing_gapped(Vector3(0, fh, atr),  true,  atr * 2.0, rg)
-	_make_railing_gapped(Vector3(0, fh, -atr), true,  atr * 2.0, rg)
-	_make_railing_gapped(Vector3(atr, fh, 0),  false, atr * 2.0, rg)
-	_make_railing_gapped(Vector3(-atr, fh, 0), false, atr * 2.0, rg)
+	# ── Structural walls ──
+	# Wing walls (x = ±14) with doors into the centre rooms.
+	_plan_wall_x(-14.0, -m + 2, m - 2, [[-30.0, false], [0.0, false], [34.0, false]], walnut, "sbswood")
+	_plan_wall_x(14.0, -m + 2, m - 2, [[-30.0, false], [0.0, false], [34.0, false]], walnut, "sbswood")
+	# West wing dividers.
+	_plan_wall_z(-18.0, -m + 2, -14.0, [[-33.0, true]], walnut, "sbswood")   # kitchen | dining
+	_plan_wall_z(16.0, -m + 2, -14.0, [[-33.0, true]], walnut, "sbswood")    # dining | servants
+	# East wing dividers.
+	_plan_wall_z(-18.0, 14.0, m - 2, [[33.0, true]], walnut, "sbswood")      # study | library
+	_plan_wall_z(16.0, 14.0, m - 2, [[33.0, true]], walnut, "sbswood")       # library | trophy
+	# Centre dividers around the stair passage.
+	_plan_wall_z(-10.0, -14.0, 14.0, [[0.0, false]], walnut, "sbswood")      # ballroom door
+	_plan_wall_z(8.0, -14.0, 14.0, [[0.0, false]], walnut, "sbswood")        # hall door
 
-	# ── Grand central staircase up to the balcony (auto-step climbs it) ──
-	var run := 13.0
-	_make_ramp(Vector3(0, 0, atr - run), Vector3(0, 0, 1), fh, run, 9.0)
-	_make_carpet(Vector3(0, 0.05, atr - run * 0.5), Vector2(7.0, run), crimson.darkened(0.1))
+	# ── Grand staircase + mezzanine landing (over the stair passage) ──
+	_make_ramp(Vector3(0, 0, 7.0), Vector3(0, 0, -1), fh, 13.0, 8.0)
+	_make_slab(Vector3(0, fh, -8.0), Vector2(26.0, 4.0))
+	_make_railing_gapped(Vector3(0, fh, -5.8), true, 26.0, 8.5)
+	for tx in [-9.0, 9.0]:
+		_make_trophy_pedestal(Vector3(tx, fh, -8.0))
 
-	# ── Great hall: carpet, columns, chandelier ──
-	_make_carpet(Vector3(0, 0.03, 0), Vector2(9.0, atr * 2.0), crimson.darkened(0.1))
-	for sx in [-9.0, 9.0]:
-		for cz in [-8.0, 8.0]:
-			_make_manor_column(Vector3(sx, 0, cz), cream, gold)
-	_make_chandelier(Vector3(0, 0, 0))
+	# ═══ KITCHEN (NW) ═══
+	_make_kitchen_counter(Vector3(-48.6, 0, -35.0), false, 12.0)
+	_make_kitchen_counter(Vector3(-30.0, 0, -48.6), true, 14.0)
+	_make_box(Vector3(-33.0, 0.7, -35.0), Vector3(3.6, 1.4, 2.0), walnut.lightened(0.1), "wood")   # island
+	_make_box(Vector3(-18.0, 1.1, -47.5), Vector3(2.2, 2.2, 1.6), Color(0.75, 0.77, 0.8), "metal") # icebox
+	_make_puddle(Vector3(-26.0, 0.01, -30.0), 1.0, Color(0.45, 0.03, 0.02, 0.75))
+	_make_sconce(Vector3(-48.5, 4.5, -26.0))
+	_make_floor_note(Vector3(-30.0, 0.02, -40.0),
+		"Dinner was served at eight.\nOnly six of us sat down.\nThe knife rack is missing one.")
+	_add_gen_spot(Vector3(-24.0, 0, -42.0))
 
-	# ── Wing dividers: archway hall↔wings + each wing split front/back ──
-	_make_door_wall(Vector3(-atr, 0, 0), false, m * 2.0, walnut)
-	_make_door_wall(Vector3(atr, 0, 0), false, m * 2.0, walnut)
-	_make_door_wall(Vector3(-wx, 0, 0), true, ring - 2.0, walnut)
-	_make_door_wall(Vector3(wx, 0, 0), true, ring - 2.0, walnut)
+	# ═══ DINING ROOM (W) ═══
+	_make_long_table(Vector3(-33.0, 0, -1.0), 16.0, walnut)
+	_make_chandelier(Vector3(-33.0, 0, -1.0))
+	_make_fireplace(Vector3(-m + 2.4, 0, -1.0), walnut)
+	_make_carpet(Vector3(-33.0, 0.03, -1.0), Vector2(11.0, 22.0), crimson.darkened(0.15))
+	_make_portrait(Vector3(-15.1, 4.0, -8.0), Vector3(-1, 0, 0), gold)
+	_make_portrait(Vector3(-15.1, 4.0, 8.0), Vector3(-1, 0, 0), gold)
+	_add_gen_spot(Vector3(-46.0, 0, 10.0))
 
-	# ── Four furnished, chandelier-lit wing rooms ──
-	for rp in [Vector3(-wx, 0, -wz), Vector3(-wx, 0, wz),
-			Vector3(wx, 0, -wz), Vector3(wx, 0, wz)]:
-		_make_chandelier(rp)
-		_furnish_manor_room(rp, walnut, crimson)
+	# ═══ SERVANT QUARTERS (SW) ═══
+	for i in 3:
+		_make_bed(Vector3(-46.5, 0, 24.0 + i * 9.0), false, Color(0.5, 0.5, 0.55))
+	_make_box(Vector3(-20.0, 1.0, 46.0), Vector3(2.0, 2.0, 1.0), walnut, "wood")   # wardrobe
+	_make_desk(Vector3(-30.0, 0, 46.0), walnut)
+	_make_carpet(Vector3(-33.0, 0.03, 33.0), Vector2(8.0, 8.0), Color(0.3, 0.3, 0.28))
+	_make_sconce(Vector3(-48.5, 4.5, 34.0))
+	_make_floor_note(Vector3(-38.0, 0.02, 28.0),
+		"The master rang the bell at\nmidnight. Nobody rang it back.\nI'm not going up there again.")
+	_add_gen_spot(Vector3(-38.0, 0, 42.0))
 
-	# ── Fireplaces + sconces + portraits ──
-	_make_fireplace(Vector3(-m + 2.0, 0, -wz), walnut)
-	_make_fireplace(Vector3(m - 2.0, 0, wz), walnut)
-	for sz in [-wz, 0.0, wz]:
-		_make_sconce(Vector3(-atr + 0.8, 4.5, sz))
-		_make_sconce(Vector3(atr - 0.8, 4.5, sz))
-	for pz in [-9.0, 9.0]:
-		_make_portrait(Vector3(-atr + 1.1, 4.0, pz), Vector3(1, 0, 0), gold)
-		_make_portrait(Vector3(atr - 1.1, 4.0, pz), Vector3(-1, 0, 0), gold)
+	# ═══ STUDY (NE) ═══
+	_make_box(Vector3(33.0, 0.95, -40.0), Vector3(3.6, 0.2, 1.8), walnut, "wood")   # grand desk top
+	_make_box(Vector3(33.0, 0.45, -40.0), Vector3(3.2, 0.9, 1.4), walnut.darkened(0.15), "wood")
+	_make_box(Vector3(33.0, 0.6, -37.0), Vector3(0.9, 1.2, 0.9), crimson.darkened(0.2), "wood")  # chair
+	_make_bookshelves(Vector3(46.0, 0, -30.0), walnut)
+	_make_cylinder(Vector3(24.0, 0.5, -46.0), 0.12, 1.0, walnut)                    # globe stand
+	_make_sphere(Vector3(24.0, 1.3, -46.0), 0.45, Color(0.35, 0.45, 0.55), false, false)
+	_make_portrait(Vector3(33.0, 4.0, -m + 2.5), Vector3(0, 0, 1), gold)
+	_make_sconce(Vector3(48.5, 4.5, -34.0))
+	_make_floor_note(Vector3(30.0, 0.02, -36.0),
+		"I found the will in the study.\nEverything goes to the gardener?\nHe's been dead for ten years.")
+	_add_gen_spot(Vector3(42.0, 0, -46.0))
+
+	# ═══ LIBRARY (E) ═══
+	for row in 3:
+		_make_bookshelf_row(Vector3(24.0 + row * 9.0, 0, -1.0), 18.0)
+	_make_fireplace(Vector3(33.0, 0, -16.6), walnut)
+	_make_sofa(Vector3(33.0, 0, 12.0), crimson)
+	_make_carpet(Vector3(33.0, 0.03, -1.0), Vector2(24.0, 20.0), Color(0.30, 0.24, 0.18))
+	_make_sconce(Vector3(48.5, 4.5, -1.0))
+	_add_gen_spot(Vector3(46.0, 0, 10.0))
+
+	# ═══ TROPHY ROOM (SE) ═══
+	for i in 3:
+		for j in 2:
+			_make_trophy_pedestal(Vector3(24.0 + i * 9.0, 0, 26.0 + j * 14.0))
+	_make_display_case(Vector3(46.0, 0, 34.0))
+	for hx in [24.0, 33.0, 42.0]:
+		_make_mounted_head(Vector3(hx, 3.2, m - 2.6))
+	_make_sconce(Vector3(48.5, 4.5, 34.0))
+	_add_gen_spot(Vector3(40.0, 0, 46.0))
+
+	# ═══ BALLROOM (N) ═══
+	_make_carpet(Vector3(0.0, 0.02, -31.0), Vector2(20.0, 30.0), Color(0.55, 0.48, 0.38))
+	for col_x in [-10.0, 10.0]:
+		for col_z in [-46.0, -16.0]:
+			_make_manor_column(Vector3(col_x, 0, col_z), cream, gold)
+	_make_chandelier(Vector3(0.0, 0, -31.0))
+	_make_piano(Vector3(-8.0, 0, -46.0))
+	# The murder scene: the victim, mid-ballroom, dragged toward the doors.
+	_make_corpse_prop(Vector3(2.0, 0, -28.0))
+	_make_blood_pool(Vector3(2.0, 0, -28.0), 2.0)
+	_make_blood_streak(Vector3(5.0, 0, -24.0), Vector3(0.6, 0, 1.0), 6.0)
+	_add_gen_spot(Vector3(0.0, 0, -44.0))
+
+	# ═══ GRAND ENTRANCE HALL (S) ═══
+	_make_carpet(Vector3(0.0, 0.03, 30.0), Vector2(7.0, 40.0), crimson.darkened(0.1))
+	for col_x in [-9.0, 9.0]:
+		for col_z in [18.0, 42.0]:
+			_make_manor_column(Vector3(col_x, 0, col_z), cream, gold)
+	_make_chandelier(Vector3(0.0, 0, 28.0))
+	# Front door alcove on the south wall (cosmetic — the manor is sealed).
+	_make_box(Vector3(0.0, 2.6, m - 1.6), Vector3(5.2, 5.2, 0.6), walnut.darkened(0.2), "wood")
+	for px in [-6.0, 6.0]:
+		_make_portrait(Vector3(px, 4.0, m - 2.4), Vector3(0, 0, -1), gold)
+	_make_floor_note(Vector3(0.0, 0.02, 36.0),
+		"The doors won't open. The windows\nare boarded from OUTSIDE.\nOne of us did this.")
+	_add_gen_spot(Vector3(0.0, 0, 46.0))
+
+	# ── Sconces along the wing walls + blood through the halls ──
+	for sz in [-30.0, 0.0, 34.0]:
+		_make_sconce(Vector3(-13.2, 4.5, sz + 3.5))
+		_make_sconce(Vector3(13.2, 4.5, sz + 3.5))
+	for i in 10:
+		var bp := Vector3(_rng.randf_range(-m + 8, m - 8), 0, _rng.randf_range(-m + 8, m - 8))
+		if _rng.randf() < 0.6:
+			_make_blood_pool(bp, _rng.randf_range(0.5, 1.2))
+		else:
+			_make_blood_streak(bp, Vector3(_rng.randf_range(-1, 1), 0, _rng.randf_range(-1, 1)),
+				_rng.randf_range(2.0, 5.0))
 
 
 ## A lived-in furniture cluster: a seating/dining set + a vampire table + plants.
@@ -2094,6 +2214,11 @@ func _make_partition(vertical: bool, coord: float, gap_centers: Array) -> void:
 		if seg_end - cursor > 0.5:
 			_add_partition_segment(vertical, coord, cursor, seg_end, thickness)
 		cursor = maxf(cursor, c[1])
+		# Register the doorway so the dynamic-door pass can hang a door in it.
+		# Partition rooms have no guaranteed second exit, so these never lock.
+		var gc: float = clampf((c[0] + c[1]) * 0.5, span_min + door, span_max - door)
+		var dpos := Vector3(coord, 0, gc) if vertical else Vector3(gc, 0, coord)
+		_add_door_spot(dpos, not vertical, door * 0.9, false)
 	if span_max - cursor > 0.5:
 		_add_partition_segment(vertical, coord, cursor, span_max, thickness)
 
@@ -2500,7 +2625,7 @@ func _make_dead_tree(pos: Vector3) -> void:
 
 
 func _pick_color() -> Color:
-	var pal: Array = PALETTES.get(style, PALETTES[Style.URBAN])
+	var pal: Array = PALETTES.get(style, PALETTES[Style.CABIN])
 	return pal[_rng.randi() % pal.size()]
 
 
@@ -2597,9 +2722,9 @@ func _build_spawns() -> void:
 	var h := Marker3D.new()
 	h.name = "HunterSpawn"
 	# Most maps keep the centre clear; the LAB routes walls through the origin,
-	# so drop the hunter into the open north hallway instead.
+	# so the hunter wakes up at the entry security checkpoint instead.
 	if style == Style.LAB:
-		h.position = Vector3(0, 1, -_half + 5.0)
+		h.position = Vector3(0, 1, _half - 13.0)
 	else:
 		h.position = Vector3(0, 1, 0)
 	root.add_child(h)
@@ -2748,6 +2873,12 @@ func _ground_mat() -> StandardMaterial3D:
 		Style.LAB:
 			tex_path = TEX_PATHS["metal"]
 			tiling = ARENA_SIZE / 3.0
+		Style.CABIN:
+			tex_path = TEX_PATHS["sbsgrass"]
+			tiling = ARENA_SIZE / 4.0
+		Style.CITY:
+			tex_path = "res://assets/textures/ground_concrete.png"
+			tiling = ARENA_SIZE / 5.0
 	var m := StandardMaterial3D.new()
 	m.albedo_color = ground_color
 	m.roughness = 0.95
@@ -2755,3 +2886,899 @@ func _ground_mat() -> StandardMaterial3D:
 		m.albedo_texture = load(tex_path)
 		m.uv1_scale = Vector3(tiling, tiling, 1.0)
 	return m
+
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# DYNAMIC DOORS + GENERATOR SPAWN POINTS  (randomised every round)
+# ═════════════════════════════════════════════════════════════════════════════
+
+const DOOR_SCRIPT := preload("res://scripts/Door.gd")
+
+## Doorway gaps recorded while building the layout. Each entry:
+## {"pos": Vector3, "along_x": bool, "width": float, "can_lock": bool}
+var _door_spots: Array = []
+## Curated generator spawn positions for this layout (published as markers).
+var _gen_spots: Array = []
+
+
+func _add_door_spot(pos: Vector3, along_x: bool, width := 3.6, can_lock := true) -> void:
+	_door_spots.append({"pos": pos, "along_x": along_x, "width": width, "can_lock": can_lock})
+
+
+func _add_gen_spot(pos: Vector3) -> void:
+	_gen_spots.append(pos)
+
+
+## Spawn swinging doors at a random subset of the recorded doorways and LOCK a
+## few of them. Uses a randomised RNG (not the seeded layout RNG) so the door
+## arrangement changes every round even though the architecture stays fixed.
+## Only spots flagged `can_lock` may lock — those are doorways whose rooms keep
+## an alternate route, so a locked door never seals off part of the map.
+func _spawn_round_doors() -> void:
+	if _door_spots.is_empty():
+		return
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	var spots := _door_spots.duplicate()
+	# Fisher-Yates with our own RNG (Array.shuffle uses the global one).
+	for i in range(spots.size() - 1, 0, -1):
+		var j := rng.randi_range(0, i)
+		var tmp = spots[i]
+		spots[i] = spots[j]
+		spots[j] = tmp
+	var place_n := maxi(1, int(ceil(spots.size() * 0.75)))
+	var lock_budget := int(floor(place_n * 0.25))
+	for i in mini(place_n, spots.size()):
+		var s: Dictionary = spots[i]
+		var locked: bool = s["can_lock"] and lock_budget > 0 and rng.randf() < 0.55
+		if locked:
+			lock_budget -= 1
+		var d: Node3D = DOOR_SCRIPT.new()
+		add_child(d)
+		d.position = s["pos"]
+		d.setup(s["along_x"], s["width"], locked)
+
+
+## Publish curated generator spots as Marker3D nodes in the "generator_spawn"
+## group; ObjectiveController prefers these (shuffled per round) over scatter.
+func _spawn_gen_markers() -> void:
+	if _gen_spots.is_empty():
+		return
+	var root := Node3D.new()
+	root.name = "GeneratorSpawns"
+	add_child(root)
+	for pos in _gen_spots:
+		var mk := Marker3D.new()
+		root.add_child(mk)
+		mk.position = pos
+		mk.add_to_group("generator_spawn")
+
+
+## Wall along X at fixed z, spanning x0→x1, with doorway gaps at `doors`
+## (each entry = [centre, can_lock]). Every gap registers a dynamic-door spot.
+func _plan_wall_z(z: float, x0: float, x1: float, doors: Array, col: Color, tex := "", height := -1.0) -> void:
+	var wall_h := (WALL_HEIGHT * 0.5) if height <= 0.0 else height
+	var dwh := 1.8
+	var ds := doors.duplicate()
+	ds.sort_custom(func(a, b): return a[0] < b[0])
+	var cursor := x0
+	for d in ds:
+		var c: float = d[0]
+		if c - dwh - cursor > 0.3:
+			_make_box(Vector3((cursor + c - dwh) * 0.5, wall_h * 0.5, z),
+				Vector3(c - dwh - cursor, wall_h, 0.4), col, tex)
+		_add_door_spot(Vector3(c, 0, z), true, dwh * 2.0, bool(d[1]))
+		cursor = c + dwh
+	if x1 - cursor > 0.3:
+		_make_box(Vector3((cursor + x1) * 0.5, wall_h * 0.5, z),
+			Vector3(x1 - cursor, wall_h, 0.4), col, tex)
+
+
+## Wall along Z at fixed x, spanning z0→z1, with doorway gaps at `doors`.
+func _plan_wall_x(x: float, z0: float, z1: float, doors: Array, col: Color, tex := "", height := -1.0) -> void:
+	var wall_h := (WALL_HEIGHT * 0.5) if height <= 0.0 else height
+	var dwh := 1.8
+	var ds := doors.duplicate()
+	ds.sort_custom(func(a, b): return a[0] < b[0])
+	var cursor := z0
+	for d in ds:
+		var c: float = d[0]
+		if c - dwh - cursor > 0.3:
+			_make_box(Vector3(x, wall_h * 0.5, (cursor + c - dwh) * 0.5),
+				Vector3(0.4, wall_h, c - dwh - cursor), col, tex)
+		_add_door_spot(Vector3(x, 0, c), false, dwh * 2.0, bool(d[1]))
+		cursor = c + dwh
+	if z1 - cursor > 0.3:
+		_make_box(Vector3(x, wall_h * 0.5, (cursor + z1) * 0.5),
+			Vector3(0.4, wall_h, z1 - cursor), col, tex)
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# SHARED INTERIOR PROP BUILDERS  (lab / mansion / cabin / city)
+# ═════════════════════════════════════════════════════════════════════════════
+
+## A dim cold fluorescent strip that flickers like failing facility power.
+func _make_fluorescent_flicker(pos: Vector3) -> void:
+	var mi := MeshInstance3D.new()
+	var bar := BoxMesh.new()
+	bar.size = Vector3(2.6, 0.08, 0.4)
+	mi.mesh = bar
+	mi.position = pos
+	var mmat := StandardMaterial3D.new()
+	mmat.albedo_color = Color(0.85, 0.9, 0.95)
+	mmat.emission_enabled = true
+	mmat.emission = Color(0.75, 0.85, 0.95)
+	mmat.emission_energy_multiplier = 1.1
+	mi.material_override = mmat
+	add_child(mi)
+	var o: OmniLight3D = FLICKER_SCRIPT.new()
+	o.light_color = Color(0.72, 0.82, 0.92)
+	o.light_energy = 1.5
+	o.omni_range = 14.0
+	o.position = pos - Vector3(0, 0.4, 0)
+	add_child(o)
+
+
+## A steel lab workbench: cabinets, glassware, a microscope.
+func _make_lab_bench(pos: Vector3) -> void:
+	var steel := Color(0.48, 0.51, 0.55)
+	_make_box(pos + Vector3(0, 0.9, 0), Vector3(5.0, 0.16, 1.4), steel, "metal")
+	_make_box(pos + Vector3(-2.0, 0.45, 0), Vector3(0.8, 0.9, 1.2), steel.darkened(0.2), "metal")
+	_make_box(pos + Vector3(2.0, 0.45, 0), Vector3(0.8, 0.9, 1.2), steel.darkened(0.2), "metal")
+	for j in 3:
+		_make_test_tube(pos + Vector3(_rng.randf_range(-2.0, 2.0), 0.98,
+			_rng.randf_range(-0.4, 0.4)), _rng.randf() < 0.3)
+	_make_box(pos + Vector3(0.8, 1.14, 0.2), Vector3(0.22, 0.32, 0.22), Color(0.2, 0.2, 0.24), "metal")
+
+
+## A sealed glass jar with something suspended in fluid.
+func _make_specimen_jar(pos: Vector3) -> void:
+	var glass := MeshInstance3D.new()
+	var cm := CylinderMesh.new()
+	cm.top_radius = 0.14
+	cm.bottom_radius = 0.14
+	cm.height = 0.36
+	glass.mesh = cm
+	glass.position = pos + Vector3(0, 0.18, 0)
+	var gm := StandardMaterial3D.new()
+	gm.albedo_color = Color(0.7, 0.85, 0.8, 0.35)
+	gm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	glass.material_override = gm
+	add_child(glass)
+	var blob := MeshInstance3D.new()
+	var sm := SphereMesh.new()
+	sm.radius = 0.09
+	sm.height = 0.18
+	blob.mesh = sm
+	blob.position = pos + Vector3(0, 0.15, 0)
+	var bm := StandardMaterial3D.new()
+	var c := Color(0.25, 0.6, 0.2) if _rng.randf() < 0.7 else Color(0.55, 0.15, 0.1)
+	bm.albedo_color = c
+	bm.emission_enabled = true
+	bm.emission = c
+	bm.emission_energy_multiplier = 0.8
+	blob.material_override = bm
+	add_child(blob)
+
+
+## A metal rack whose shelves are lined with glowing specimen jars.
+func _make_specimen_shelf(pos: Vector3, along_x: bool) -> void:
+	var span := 6.0
+	var frame := Color(0.35, 0.37, 0.4)
+	for s in [-1.0, 1.0]:
+		var off := Vector3(s * (span * 0.5 - 0.1), 1.1, 0) if along_x \
+			else Vector3(0, 1.1, s * (span * 0.5 - 0.1))
+		_make_box(pos + off, Vector3(0.12, 2.2, 0.12), frame, "metal")
+	for lvl in [0.5, 1.2, 1.9]:
+		var size := Vector3(span, 0.1, 0.9) if along_x else Vector3(0.9, 0.1, span)
+		_make_box(pos + Vector3(0, lvl, 0), size, Color(0.4, 0.42, 0.45), "metal")
+		for i in 4:
+			var t := (float(i) + 0.5) / 4.0 - 0.5
+			var jp := pos + (Vector3(t * span, lvl + 0.05, 0) if along_x \
+				else Vector3(0, lvl + 0.05, t * span))
+			_make_specimen_jar(jp)
+
+
+## A humming server cabinet with blinking status LEDs.
+func _make_server_rack(pos: Vector3, along_x: bool) -> void:
+	var size := Vector3(3.6, 2.6, 0.9) if along_x else Vector3(0.9, 2.6, 3.6)
+	_make_box(pos + Vector3(0, 1.3, 0), size, Color(0.10, 0.11, 0.13), "metal")
+	for i in 6:
+		var t := (float(i) + 0.5) / 6.0 - 0.5
+		var lp := pos + (Vector3(t * 3.2, _rng.randf_range(0.4, 2.2), 0.48) if along_x \
+			else Vector3(0.48, _rng.randf_range(0.4, 2.2), t * 3.2))
+		var led := MeshInstance3D.new()
+		var lb := BoxMesh.new()
+		lb.size = Vector3(0.07, 0.07, 0.07)
+		led.mesh = lb
+		led.position = lp
+		var lm := StandardMaterial3D.new()
+		var c := Color(0.2, 0.9, 0.3) if _rng.randf() < 0.7 else Color(0.9, 0.6, 0.1)
+		lm.albedo_color = c
+		lm.emission_enabled = true
+		lm.emission = c
+		lm.emission_energy_multiplier = 1.8
+		led.material_override = lm
+		add_child(led)
+
+
+## A steel operating table, optionally with a sheeted body on it.
+func _make_operating_table(pos: Vector3, with_body: bool) -> void:
+	var steel := Color(0.68, 0.71, 0.75)
+	_make_box(pos + Vector3(0, 0.45, 0), Vector3(0.5, 0.9, 0.4), steel.darkened(0.3), "metal")
+	_make_box(pos + Vector3(0, 0.95, 0), Vector3(2.3, 0.1, 0.95), steel, "metal")
+	_make_box(pos + Vector3(1.6, 0.85, 0.4), Vector3(0.6, 0.05, 0.4), steel.lightened(0.1), "metal")
+	if not with_body:
+		return
+	var ty := 1.0
+	var torso := MeshInstance3D.new()
+	var tc := CapsuleMesh.new()
+	tc.radius = 0.24
+	tc.height = 1.05
+	torso.mesh = tc
+	torso.position = pos + Vector3(0, ty + 0.22, 0)
+	torso.rotation.z = PI * 0.5
+	torso.material_override = _mat(Color(0.72, 0.74, 0.78))
+	add_child(torso)
+	var head := MeshInstance3D.new()
+	var hm := SphereMesh.new()
+	hm.radius = 0.16
+	head.mesh = hm
+	head.position = pos + Vector3(-0.72, ty + 0.18, 0)
+	head.material_override = _mat(Color(0.5, 0.4, 0.34))
+	add_child(head)
+	_make_puddle(pos + Vector3(0.3, ty + 0.06, 0), 0.5, Color(0.45, 0.02, 0.01, 0.85))
+	_make_puddle(pos + Vector3(0.6, 0.01, 0.7), 0.8, Color(0.4, 0.02, 0.01, 0.7))
+
+
+## An overhead surgical lamp: bright disc + a pool of light below.
+func _make_surgical_light(pos: Vector3) -> void:
+	_cosmetic(_make_cylinder_mesh(0.05, 1.2, Color.BLACK), pos + Vector3(0, 0.6, 0), Color(0.1, 0.1, 0.1))
+	var head := MeshInstance3D.new()
+	var cm := CylinderMesh.new()
+	cm.top_radius = 0.55
+	cm.bottom_radius = 0.55
+	cm.height = 0.14
+	head.mesh = cm
+	head.position = pos
+	var hmat := StandardMaterial3D.new()
+	hmat.albedo_color = Color(0.9, 0.92, 0.95)
+	hmat.emission_enabled = true
+	hmat.emission = Color(0.95, 0.97, 1.0)
+	hmat.emission_energy_multiplier = 1.6
+	head.material_override = hmat
+	add_child(head)
+	var o := OmniLight3D.new()
+	o.light_color = Color(0.95, 0.97, 1.0)
+	o.light_energy = 1.6
+	o.omni_range = 10.0
+	o.position = pos - Vector3(0, 1.0, 0)
+	add_child(o)
+
+
+## A wheeled gurney, optionally with a sheet-covered occupant.
+func _make_gurney(pos: Vector3, with_body: bool) -> void:
+	var steel := Color(0.6, 0.63, 0.67)
+	_make_box(pos + Vector3(0, 0.85, 0), Vector3(2.0, 0.08, 0.8), steel, "metal")
+	for sx in [-0.8, 0.8]:
+		_make_box(pos + Vector3(sx, 0.42, 0), Vector3(0.08, 0.85, 0.6), steel.darkened(0.25), "metal")
+	if with_body:
+		_make_box(pos + Vector3(0, 1.03, 0), Vector3(1.7, 0.3, 0.6), Color(0.8, 0.8, 0.83))
+		_make_puddle(pos + Vector3(0.4, 1.2, 0.1), 0.3, Color(0.45, 0.02, 0.01, 0.8))
+
+
+## A wall of morgue drawers; one is left open with the slab pulled out.
+func _make_morgue_drawers(pos: Vector3) -> void:
+	var steel := Color(0.55, 0.58, 0.62)
+	_make_box(pos + Vector3(0, 1.6, 0), Vector3(12.0, 3.2, 1.4), steel.darkened(0.25), "metal")
+	for cxi in 5:
+		for ryi in 3:
+			var face := MeshInstance3D.new()
+			var fb := BoxMesh.new()
+			fb.size = Vector3(2.0, 0.85, 0.06)
+			face.mesh = fb
+			face.position = Vector3(pos.x - 4.8 + cxi * 2.4, 0.65 + ryi * 1.05, pos.z - 0.75)
+			face.material_override = _mat(steel)
+			add_child(face)
+	_make_box(pos + Vector3(-2.4, 0.55, -2.2), Vector3(1.9, 0.12, 2.2), steel.lightened(0.1), "metal")
+	_make_puddle(pos + Vector3(-2.4, 0.62, -2.4), 0.5, Color(0.45, 0.02, 0.01, 0.85))
+
+
+## A vending machine with a glowing front (still running on backup power).
+func _make_vending_machine(pos: Vector3) -> void:
+	_make_box(pos + Vector3(0, 1.05, 0), Vector3(1.2, 2.1, 0.9), Color(0.15, 0.16, 0.2), "metal")
+	var front := MeshInstance3D.new()
+	var fb := BoxMesh.new()
+	fb.size = Vector3(0.9, 1.5, 0.05)
+	front.mesh = fb
+	front.position = pos + Vector3(0, 1.25, -0.48)
+	var fm := StandardMaterial3D.new()
+	fm.albedo_color = Color(0.3, 0.5, 0.8)
+	fm.emission_enabled = true
+	fm.emission = Color(0.25, 0.45, 0.8)
+	fm.emission_energy_multiplier = 1.2
+	front.material_override = fm
+	add_child(front)
+
+
+## A security scanner arch with a blinking status lamp.
+func _make_security_arch(pos: Vector3) -> void:
+	var dark := Color(0.2, 0.21, 0.25)
+	for s in [-1.5, 1.5]:
+		_make_box(pos + Vector3(s, 1.25, 0), Vector3(0.35, 2.5, 0.5), dark, "metal")
+	_cosmetic(_box_mesh(Vector3(3.4, 0.35, 0.5)), pos + Vector3(0, 2.65, 0), dark)
+	_make_emissive_sphere(pos + Vector3(0, 2.55, 0.3), 0.07, Color(0.9, 0.15, 0.1))
+
+
+## A banquet-length dining table with chairs down both sides and candelabra.
+func _make_long_table(pos: Vector3, length: float, wood: Color) -> void:
+	_make_box(pos + Vector3(0, 1.0, 0), Vector3(2.6, 0.14, length), wood, "wood")
+	for s in [-1.0, 1.0]:
+		_make_box(pos + Vector3(0, 0.5, s * (length * 0.5 - 0.6)), Vector3(2.2, 1.0, 0.3), wood.darkened(0.2))
+	var zc := -length * 0.5 + 1.5
+	while zc <= length * 0.5 - 1.5:
+		for s in [-1.0, 1.0]:
+			_make_box(pos + Vector3(s * 1.8, 0.55, zc), Vector3(0.55, 1.1, 0.55), wood.darkened(0.1), "wood")
+		zc += 2.2
+	for czz in [-length * 0.25, 0.0, length * 0.25]:
+		_make_emissive_sphere(pos + Vector3(0, 1.45, czz), 0.09, Color(1.0, 0.78, 0.4))
+
+
+## A run of kitchen counters with a worktop and pots.
+func _make_kitchen_counter(pos: Vector3, along_x: bool, length: float) -> void:
+	var top := Color(0.62, 0.60, 0.55)
+	var body := Color(0.32, 0.22, 0.14)
+	var size := Vector3(length, 0.95, 1.1) if along_x else Vector3(1.1, 0.95, length)
+	_make_box(pos + Vector3(0, 0.475, 0), size, body, "wood")
+	var tsize := Vector3(length + 0.1, 0.08, 1.2) if along_x else Vector3(1.2, 0.08, length + 0.1)
+	_make_box(pos + Vector3(0, 0.99, 0), tsize, top)
+	for i in 3:
+		var t := (float(i) + 0.5) / 3.0 - 0.5
+		var off := Vector3(t * length, 1.12, 0) if along_x else Vector3(0, 1.12, t * length)
+		_cosmetic(_make_cylinder_mesh(0.16, 0.18, Color.BLACK), pos + off, Color(0.25, 0.26, 0.28))
+
+
+## A simple bed: frame, mattress, pillow, headboard.
+func _make_bed(pos: Vector3, along_x: bool, blanket: Color) -> void:
+	var wood := Color(0.3, 0.2, 0.12)
+	var size := Vector3(2.2, 0.45, 1.2) if along_x else Vector3(1.2, 0.45, 2.2)
+	_make_box(pos + Vector3(0, 0.225, 0), size, wood, "wood")
+	var msize := Vector3(2.0, 0.22, 1.05) if along_x else Vector3(1.05, 0.22, 2.0)
+	_make_box(pos + Vector3(0, 0.56, 0), msize, blanket)
+	var poff := Vector3(-0.75, 0.72, 0) if along_x else Vector3(0, 0.72, -0.75)
+	_cosmetic(_box_mesh(Vector3(0.5, 0.14, 0.6) if along_x else Vector3(0.6, 0.14, 0.5)),
+		pos + poff, Color(0.88, 0.86, 0.8))
+	var hoff := Vector3(-1.15, 0.55, 0) if along_x else Vector3(0, 0.55, -1.15)
+	_make_box(pos + hoff, Vector3(0.12, 1.1, 1.2) if along_x else Vector3(1.2, 1.1, 0.12), wood, "wood")
+
+
+## A grand piano (lid open) with its bench.
+func _make_piano(pos: Vector3) -> void:
+	var black := Color(0.08, 0.08, 0.09)
+	_make_box(pos + Vector3(0, 0.95, 0), Vector3(2.6, 1.0, 1.5), black)
+	_make_box(pos + Vector3(0, 0.78, 1.0), Vector3(2.2, 0.10, 0.5), Color(0.9, 0.88, 0.82))
+	_make_box(pos + Vector3(0, 0.3, 1.7), Vector3(1.2, 0.6, 0.5), black.lightened(0.08))
+	_cosmetic(_box_mesh(Vector3(2.4, 0.06, 1.3)), pos + Vector3(0, 1.5, -0.2), black.lightened(0.05))
+
+
+## A tall double-sided library stack with coloured book spines.
+func _make_bookshelf_row(pos: Vector3, length: float) -> void:
+	var wood := Color(0.3, 0.2, 0.12)
+	_make_box(pos + Vector3(0, 2.0, 0), Vector3(1.0, 4.0, length), wood, "wood")
+	var pal: Array = PALETTES[Style.MANSION]
+	for side in [-0.53, 0.53]:
+		var zc := -length * 0.5 + 0.8
+		while zc < length * 0.5 - 0.4:
+			var bcol: Color = pal[_rng.randi() % pal.size()]
+			_cosmetic(_box_mesh(Vector3(0.06, _rng.randf_range(0.5, 0.9), _rng.randf_range(0.5, 1.1))),
+				pos + Vector3(side, _rng.randf_range(0.6, 3.4), zc), bcol.lightened(0.1))
+			zc += _rng.randf_range(0.9, 1.6)
+
+
+## A marble pedestal topped with a faintly glowing gold cup.
+func _make_trophy_pedestal(pos: Vector3) -> void:
+	var marble := Color(0.8, 0.78, 0.72)
+	_make_box(pos + Vector3(0, 0.6, 0), Vector3(0.9, 1.2, 0.9), marble, "concrete")
+	var cup := MeshInstance3D.new()
+	var cm := CylinderMesh.new()
+	cm.top_radius = 0.28
+	cm.bottom_radius = 0.12
+	cm.height = 0.5
+	cup.mesh = cm
+	cup.position = pos + Vector3(0, 1.5, 0)
+	var gmat := StandardMaterial3D.new()
+	gmat.albedo_color = Color(0.85, 0.7, 0.25)
+	gmat.metallic = 0.9
+	gmat.roughness = 0.2
+	gmat.emission_enabled = true
+	gmat.emission = Color(0.5, 0.4, 0.1)
+	gmat.emission_energy_multiplier = 0.4
+	cup.material_override = gmat
+	add_child(cup)
+
+
+## A glass display case whose weapon mount is conspicuously EMPTY.
+func _make_display_case(pos: Vector3) -> void:
+	_make_box(pos + Vector3(0, 0.55, 0), Vector3(1.6, 1.1, 1.0), Color(0.26, 0.17, 0.11), "wood")
+	var glass := MeshInstance3D.new()
+	var gb := BoxMesh.new()
+	gb.size = Vector3(1.4, 0.8, 0.85)
+	glass.mesh = gb
+	glass.position = pos + Vector3(0, 1.5, 0)
+	var gm := StandardMaterial3D.new()
+	gm.albedo_color = Color(0.75, 0.85, 0.9, 0.22)
+	gm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	glass.material_override = gm
+	add_child(glass)
+	_cosmetic(_box_mesh(Vector3(0.8, 0.06, 0.3)), pos + Vector3(0, 1.18, 0), Color(0.45, 0.08, 0.08))
+
+
+## A mounted hunting trophy on a wall plaque.
+func _make_mounted_head(pos: Vector3) -> void:
+	_cosmetic(_box_mesh(Vector3(0.9, 1.1, 0.1)), pos, Color(0.26, 0.17, 0.11))
+	var head := SphereMesh.new()
+	head.radius = 0.28
+	head.height = 0.56
+	_cosmetic(head, pos + Vector3(0, 0.05, -0.28), Color(0.32, 0.24, 0.16))
+
+
+## A stacked firewood pile (cosmetic logs + one invisible collider).
+func _make_log_pile(pos: Vector3) -> void:
+	var bark := Color(0.33, 0.23, 0.14)
+	for row in 3:
+		for i in 4 - row:
+			var mi := MeshInstance3D.new()
+			mi.mesh = _make_cylinder_mesh(0.22, 1.8, bark)
+			mi.position = pos + Vector3(-0.66 + i * 0.44 + row * 0.22, 0.22 + row * 0.4, 0)
+			mi.rotation.x = PI * 0.5
+			mi.material_override = _mat(bark.darkened(_rng.randf_range(0.0, 0.15)), "wood")
+			add_child(mi)
+	var body := StaticBody3D.new()
+	body.collision_layer = 1
+	body.position = pos + Vector3(0, 0.6, 0)
+	add_child(body)
+	var shape := CollisionShape3D.new()
+	var bx := BoxShape3D.new()
+	bx.size = Vector3(2.0, 1.2, 1.9)
+	shape.shape = bx
+	body.add_child(shape)
+
+
+## A wooden lantern post with a warm flickering flame.
+func _make_lantern_post(pos: Vector3) -> void:
+	_make_cylinder(pos + Vector3(0, 1.6, 0), 0.09, 3.2, Color(0.2, 0.16, 0.12), "wood")
+	_make_emissive_sphere(pos + Vector3(0, 3.1, 0), 0.14, Color(1.0, 0.7, 0.35))
+	var o: OmniLight3D = FLICKER_SCRIPT.new()
+	o.light_color = Color(1.0, 0.66, 0.3)
+	o.light_energy = 1.4
+	o.omni_range = 13.0
+	o.position = pos + Vector3(0, 3.0, 0)
+	add_child(o)
+
+
+## A sodium streetlight; a few in every city are on their way out.
+func _make_streetlight(pos: Vector3, arm_dir := Vector3(1, 0, 0)) -> void:
+	var pole := Color(0.16, 0.17, 0.19)
+	_make_cylinder(pos + Vector3(0, 3.0, 0), 0.12, 6.0, pole, "metal")
+	var head_pos := pos + arm_dir * 1.6 + Vector3(0, 5.9, 0)
+	_cosmetic(_box_mesh(Vector3(absf(arm_dir.x) * 1.6 + 0.12, 0.12, absf(arm_dir.z) * 1.6 + 0.12)),
+		pos + arm_dir * 0.8 + Vector3(0, 5.9, 0), pole)
+	var lamp := MeshInstance3D.new()
+	var lb := BoxMesh.new()
+	lb.size = Vector3(0.5, 0.14, 0.3)
+	lamp.mesh = lb
+	lamp.position = head_pos
+	var lmat := StandardMaterial3D.new()
+	lmat.albedo_color = Color(1.0, 0.75, 0.4)
+	lmat.emission_enabled = true
+	lmat.emission = Color(1.0, 0.68, 0.3)
+	lmat.emission_energy_multiplier = 1.8
+	lamp.material_override = lmat
+	add_child(lamp)
+	var o: OmniLight3D
+	if _rng.randf() < 0.3:
+		o = FLICKER_SCRIPT.new()
+	else:
+		o = OmniLight3D.new()
+	o.light_color = Color(1.0, 0.62, 0.25)
+	o.light_energy = 1.6
+	o.omni_range = 18.0
+	o.position = head_pos - Vector3(0, 0.4, 0)
+	add_child(o)
+
+
+## An abandoned parked car (body + cabin + wheels).
+func _make_city_car(pos: Vector3, along_x: bool, col: Color) -> void:
+	var body_size := Vector3(4.2, 0.9, 1.9) if along_x else Vector3(1.9, 0.9, 4.2)
+	_make_box(pos + Vector3(0, 0.75, 0), body_size, col, "metal")
+	var cab_size := Vector3(2.1, 0.7, 1.7) if along_x else Vector3(1.7, 0.7, 2.1)
+	_make_box(pos + Vector3(0, 1.55, 0), cab_size, col.darkened(0.35), "metal")
+	for sa in [-1.4, 1.4]:
+		for sb in [-0.95, 0.95]:
+			var wheel := MeshInstance3D.new()
+			wheel.mesh = _make_cylinder_mesh(0.38, 0.3, Color.BLACK)
+			wheel.position = pos + (Vector3(sa, 0.38, sb) if along_x else Vector3(sb, 0.38, sa))
+			wheel.rotation = Vector3(PI * 0.5, 0, 0) if along_x else Vector3(0, 0, PI * 0.5)
+			wheel.material_override = _mat(Color(0.06, 0.06, 0.07))
+			add_child(wheel)
+
+
+## An alley dumpster with a skewed lid.
+func _make_dumpster(pos: Vector3) -> void:
+	var green := Color(0.16, 0.3, 0.18)
+	_make_box(pos + Vector3(0, 0.75, 0), Vector3(2.4, 1.5, 1.4), green, "metal")
+	_cosmetic(_box_mesh(Vector3(2.5, 0.1, 1.5)), pos + Vector3(0.2, 1.62, 0), green.darkened(0.2),
+		Vector3(0, 0, 0.12))
+
+
+## A store gondola shelf stocked with colourful product boxes.
+func _make_store_shelf(pos: Vector3, along_x: bool, length: float) -> void:
+	var frame := Color(0.75, 0.75, 0.78)
+	var size := Vector3(length, 1.8, 0.9) if along_x else Vector3(0.9, 1.8, length)
+	_make_box(pos + Vector3(0, 0.9, 0), size, frame, "metal")
+	var pal: Array = PALETTES[Style.CITY]
+	for i in int(length):
+		var t := (float(i) + 0.5) / length - 0.5
+		for lvl in [0.5, 1.0, 1.5]:
+			if _rng.randf() < 0.6:
+				var off := Vector3(t * length, lvl + 0.14, 0.52) if along_x \
+					else Vector3(0.52, lvl + 0.14, t * length)
+				_cosmetic(_box_mesh(Vector3(0.5, 0.26, 0.12) if along_x else Vector3(0.12, 0.26, 0.5)),
+					pos + off, (pal[_rng.randi() % pal.size()] as Color).lightened(0.25))
+
+
+## A buzzing neon sign: glowing text + a coloured pool of light.
+func _make_neon_sign(pos: Vector3, text: String, color: Color, rot: Vector3) -> void:
+	var l := Label3D.new()
+	l.text = text
+	l.font_size = 64
+	l.pixel_size = 0.01
+	l.position = pos
+	l.rotation = rot
+	l.modulate = color
+	l.outline_size = 12
+	l.outline_modulate = color.darkened(0.7)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.double_sided = true
+	add_child(l)
+	var o := OmniLight3D.new()
+	o.light_color = color
+	o.light_energy = 1.5
+	o.omni_range = 12.0
+	o.position = pos
+	add_child(o)
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# CABIN LAYOUT  (style 0 — replaced the old Urban arena)
+# ═════════════════════════════════════════════════════════════════════════════
+
+## Cabin in the woods: a lamplit log cabin in a clearing, ringed by dense dark
+## forest, with a woodshed, an outhouse, a well and a root cellar. The hunter
+## wakes up in the main room by the fireplace.
+func _build_cabin_layout() -> void:
+	var log_col := Color(0.36, 0.24, 0.14)
+	var timber := Color(0.28, 0.18, 0.11)
+	var stone := Color(0.42, 0.42, 0.44)
+	var wall_h := 4.6
+
+	# ── THE CABIN (centred on the origin) ──
+	# Footprint x[-13,13], z[-9,9]: bedroom west, main room centre, kitchen east.
+	var cx0 := -13.0
+	var cx1 := 13.0
+	var cz0 := -9.0
+	var cz1 := 9.0
+	_plan_wall_z(cz1, cx0, cx1, [[0.0, false]], log_col, "sbswood", wall_h)     # front door (S)
+	_plan_wall_z(cz0, cx0, cx1, [[8.0, false]], log_col, "sbswood", wall_h)     # back door → cellar
+	_plan_wall_x(cx0, cz0, cz1, [], log_col, "sbswood", wall_h)
+	_plan_wall_x(cx1, cz0, cz1, [], log_col, "sbswood", wall_h)
+	_plan_wall_x(-5.0, cz0, cz1, [[3.0, true]], timber, "sbswood", wall_h)      # bedroom door
+	_plan_wall_x(5.0, cz0, cz1, [[-3.0, true]], timber, "sbswood", wall_h)      # kitchen door
+	_make_box(Vector3(0, wall_h + 0.2, 0), Vector3(cx1 - cx0, 0.4, cz1 - cz0), timber.darkened(0.1), "sbswood")
+	_cosmetic(_prism(Vector3(cx1 - cx0 + 1.6, 3.2, cz1 - cz0 + 1.6)),
+		Vector3(0, wall_h + 2.0, 0), timber.darkened(0.2))
+
+	# Main room: fireplace, rug, seats — the heart of the cabin.
+	_make_fireplace(Vector3(0.0, 0, cz0 + 0.9), stone)
+	_make_carpet(Vector3(0, 0.03, 1.5), Vector2(6.0, 5.0), Color(0.4, 0.22, 0.14))
+	_make_sofa(Vector3(-2.6, 0, 4.0), Color(0.35, 0.25, 0.18))
+	_make_box(Vector3(2.8, 0.4, 2.5), Vector3(1.4, 0.8, 1.4), timber, "wood")
+	_cosmetic(_box_mesh(Vector3(1.6, 0.12, 0.12)), Vector3(0, 3.4, cz0 + 1.6), Color(0.8, 0.75, 0.62))
+	_make_sconce(Vector3(0.0, 3.4, 6.0))
+
+	# Bedroom (west end).
+	_make_bed(Vector3(-10.5, 0, -4.5), true, Color(0.5, 0.3, 0.25))
+	_make_bed(Vector3(-10.5, 0, 4.5), true, Color(0.3, 0.4, 0.45))
+	_make_box(Vector3(-6.5, 1.0, -7.6), Vector3(1.6, 2.0, 1.0), timber, "wood")
+	_make_sconce(Vector3(-9.0, 3.4, 0.0))
+	_make_floor_note(Vector3(-9.0, 0.02, 0.5),
+		"Day 6. The thing in the woods\ncircles closer each night.\nI nailed the cellar shut. It knows.")
+
+	# Kitchen (east end).
+	_make_kitchen_counter(Vector3(11.9, 0, 0.0), false, 8.0)
+	_make_box(Vector3(7.5, 0.75, 6.5), Vector3(2.4, 1.5, 1.4), timber, "wood")
+	_make_box(Vector3(6.5, 1.0, -7.6), Vector3(1.4, 2.0, 1.2), Color(0.2, 0.2, 0.22), "metal")
+	_make_cylinder(Vector3(6.5, 2.6, -7.6), 0.12, 1.2, Color(0.15, 0.15, 0.17), "metal")
+	_make_sconce(Vector3(9.0, 3.4, 0.0))
+
+	# ── ROOT CELLAR (windowless — the cabin's "basement") ──
+	_plan_wall_z(-19.0, 3.0, 13.0, [[8.0, true]], stone, "concrete", 3.4)   # outer cellar door
+	_plan_wall_x(3.0, -19.0, cz0, [], stone, "concrete", 3.4)
+	_plan_wall_x(13.0, -19.0, cz0, [], stone, "concrete", 3.4)
+	_make_box(Vector3(8.0, 3.5, -14.0), Vector3(10.0, 0.3, 10.0), stone.darkened(0.2), "concrete")
+	_spawn_model(DUN + "/Barrel.obj", Vector3(5.5, 0, -16.5), 1.6, Color(1, 1, 1), 0.4)
+	_spawn_model(DUN + "/Crate.obj", Vector3(11.0, 0, -16.0), 1.5, Color(1, 1, 1), 0.4)
+	_make_box(Vector3(12.2, 1.0, -12.0), Vector3(0.8, 2.0, 3.0), timber, "wood")
+	var cellar_light: OmniLight3D = FLICKER_SCRIPT.new()
+	cellar_light.light_color = Color(0.8, 0.75, 0.6)
+	cellar_light.light_energy = 0.9
+	cellar_light.omni_range = 9.0
+	cellar_light.position = Vector3(8.0, 2.8, -14.0)
+	add_child(cellar_light)
+	_add_gen_spot(Vector3(8.0, 0, -13.5))
+
+	# ── WOODSHED (east of the cabin) ──
+	_make_box(Vector3(26.0, 1.6, 10.0), Vector3(7.0, 3.2, 0.4), timber, "sbswood")
+	_make_box(Vector3(22.7, 1.6, 13.0), Vector3(0.4, 3.2, 6.0), timber, "sbswood")
+	_make_box(Vector3(29.3, 1.6, 13.0), Vector3(0.4, 3.2, 6.0), timber, "sbswood")
+	_cosmetic(_prism(Vector3(8.0, 1.8, 7.4)), Vector3(26.0, 4.0, 13.0), timber.darkened(0.25))
+	_make_log_pile(Vector3(26.0, 0, 12.0))
+	_make_cylinder(Vector3(25.0, 0.35, 15.3), 0.4, 0.7, timber, "wood")   # chopping block
+	_add_gen_spot(Vector3(27.6, 0, 14.6))
+
+	# ── OUTHOUSE (northwest path) ──
+	_make_box(Vector3(-24.0, 1.4, 16.9), Vector3(2.4, 2.8, 0.3), timber, "sbswood")
+	_make_box(Vector3(-25.2, 1.4, 18.0), Vector3(0.3, 2.8, 2.4), timber, "sbswood")
+	_make_box(Vector3(-22.8, 1.4, 18.0), Vector3(0.3, 2.8, 2.4), timber, "sbswood")
+	_make_box(Vector3(-24.0, 0.4, 17.5), Vector3(1.8, 0.8, 0.9), timber, "wood")
+	_cosmetic(_prism(Vector3(3.0, 1.2, 3.0)), Vector3(-24.0, 3.3, 18.0), timber.darkened(0.3))
+	_add_door_spot(Vector3(-24.0, 0, 19.1), true, 1.8, false)
+	_add_gen_spot(Vector3(-24.0, 0, 23.0))
+
+	# ── WELL (front yard) ──
+	_make_cylinder(Vector3(14.0, 0.6, 20.0), 1.2, 1.2, stone, "concrete")
+	for s in [-1.0, 1.0]:
+		_make_box(Vector3(14.0 + s * 1.1, 1.5, 20.0), Vector3(0.14, 1.8, 0.14), timber, "wood")
+	_cosmetic(_prism(Vector3(3.0, 1.0, 3.0)), Vector3(14.0, 2.7, 20.0), timber.darkened(0.3))
+	_add_gen_spot(Vector3(14.0, 0, 24.0))
+
+	# ── Yard lanterns + treeline generator spots ──
+	_make_lantern_post(Vector3(0.0, 0, 12.5))
+	_make_lantern_post(Vector3(18.0, 0, -4.0))
+	_make_lantern_post(Vector3(-16.0, 0, 8.0))
+	_add_gen_spot(Vector3(-20.0, 0, -16.0))
+	_add_gen_spot(Vector3(30.0, 0, -18.0))
+	_add_gen_spot(Vector3(0.0, 0, 34.0))
+	_add_gen_spot(Vector3(-32.0, 0, 2.0))
+
+	# ── THE DARK FOREST (dense ring outside the clearing) ──
+	var green := Color(0.20, 0.36, 0.16)
+	var pine := Color(0.16, 0.30, 0.20)
+	var dead := Color(0.30, 0.24, 0.17)
+	var rock := Color(0.42, 0.43, 0.46)
+	var placed := 0
+	var attempts := 0
+	var used: Array[Vector3] = []
+	while placed < 130 and attempts < 2400:
+		attempts += 1
+		var pos := Vector3(_rng.randf_range(-HALF + 8, HALF - 8), 0,
+				_rng.randf_range(-HALF + 8, HALF - 8))
+		if pos.length() < 38.0:
+			continue
+		var too_close := false
+		for u in used:
+			if u.distance_to(pos) < 4.0:
+				too_close = true
+				break
+		if too_close:
+			continue
+		used.append(pos)
+		var r := _rng.randf()
+		if r < 0.46:
+			var leafy: bool = _rng.randf() < 0.5
+			_spawn_model(_pick(FOREST_TREES), pos, _rng.randf_range(7.0, 14.0),
+				pine if leafy else green, 0.12)
+		elif r < 0.66:
+			_spawn_model(_pick(FOREST_DEAD), pos, _rng.randf_range(6.0, 12.0), dead, 0.10)
+		elif r < 0.82:
+			_spawn_model(_pick(FOREST_ROCKS), pos, _rng.randf_range(1.4, 4.5), rock, 0.42)
+		else:
+			_make_foliage(pos, FOLIAGE_BUSHES, 1.6, 3.0, Color(0.18, 0.32, 0.16), 0.45)
+		placed += 1
+	# Ragged treeline just inside the clearing edge.
+	for i in 14:
+		var ang := _rng.randf_range(0.0, TAU)
+		var rr := _rng.randf_range(28.0, 38.0)
+		var p2 := Vector3(cos(ang) * rr, 0, sin(ang) * rr)
+		if p2.distance_to(Vector3(26, 0, 13)) < 8.0 or p2.distance_to(Vector3(-24, 0, 18)) < 6.0 \
+				or p2.distance_to(Vector3(14, 0, 20)) < 5.0 or p2.distance_to(Vector3(8, 0, -14)) < 8.0:
+			continue
+		_spawn_model(_pick(FOREST_TREES), p2, _rng.randf_range(7.0, 12.0), Color(0.16, 0.28, 0.16), 0.12)
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# CITY LAYOUT  (style 12 — new map)
+# ═════════════════════════════════════════════════════════════════════════════
+
+## A dead city block at 3 AM: two streets cross at the centre, and each quarter
+## holds an enterable building — apartment house (NW), police station (NE),
+## convenience store (SW) and a two-level parking garage (SE).
+func _build_city_layout() -> void:
+	var h := _half
+	var brick := Color(0.45, 0.22, 0.18)
+	var conc := Color(0.5, 0.51, 0.53)
+	var plaster := Color(0.62, 0.60, 0.56)
+	var dark := Color(0.22, 0.23, 0.26)
+	var pal: Array = PALETTES[Style.CITY]
+
+	# ── STREETS: markings, crosswalks, streetlights, abandoned cars ──
+	var lane_x := -h + 8.0
+	while lane_x < h - 6.0:
+		if absf(lane_x) > 12.0:
+			_cosmetic(_box_mesh(Vector3(3.0, 0.02, 0.25)), Vector3(lane_x, 0.03, 0.0), Color(0.75, 0.65, 0.3))
+		lane_x += 8.0
+	var lane_z := -h + 8.0
+	while lane_z < h - 6.0:
+		if absf(lane_z) > 12.0:
+			_cosmetic(_box_mesh(Vector3(0.25, 0.02, 3.0)), Vector3(0.0, 0.03, lane_z), Color(0.75, 0.65, 0.3))
+		lane_z += 8.0
+	for i in 5:
+		_cosmetic(_box_mesh(Vector3(1.2, 0.02, 2.6)), Vector3(-6.0 + i * 3.0, 0.03, -10.4), Color(0.8, 0.8, 0.8))
+		_cosmetic(_box_mesh(Vector3(1.2, 0.02, 2.6)), Vector3(-6.0 + i * 3.0, 0.03, 10.4), Color(0.8, 0.8, 0.8))
+	for sx in [-56.0, -28.0, 28.0, 56.0]:
+		_make_streetlight(Vector3(sx, 0, -10.5), Vector3(0, 0, 1))
+		_make_streetlight(Vector3(sx, 0, 10.5), Vector3(0, 0, -1))
+	for sz in [-56.0, -28.0, 28.0, 56.0]:
+		_make_streetlight(Vector3(-10.5, 0, sz), Vector3(1, 0, 0))
+		_make_streetlight(Vector3(10.5, 0, sz), Vector3(-1, 0, 0))
+	_make_city_car(Vector3(-30.0, 0, 4.5), true, pal[3])
+	_make_city_car(Vector3(22.0, 0, -4.5), true, pal[1])
+	_make_city_car(Vector3(-4.5, 0, -34.0), false, pal[0].lightened(0.1))
+	_make_city_car(Vector3(4.5, 0, 30.0), false, pal[4])
+	_make_cylinder(Vector3(-11.0, 0.4, 11.0), 0.22, 0.8, Color(0.7, 0.12, 0.1), "metal")   # hydrant
+	_make_floor_note(Vector3(2.0, 0.02, 12.5),
+		"CITYWIDE ALERT: shelter in place.\nDo NOT approach the infected.\nThey remember how to open doors.")
+
+	# ═══ NW: APARTMENT BUILDING — "THE MARLOWE" ═══
+	var aw := -52.0
+	var ae := -16.0
+	var an := -56.0
+	var asx := -20.0
+	_plan_wall_z(asx, aw, ae, [[-34.0, false]], brick, "brick", 6.0)          # entrance (street side)
+	_plan_wall_z(an, aw, ae, [[-22.0, true]], brick, "brick", 6.0)            # back door
+	_plan_wall_x(aw, an, asx, [], brick, "brick", 6.0)
+	_plan_wall_x(ae, an, asx, [], brick, "brick", 6.0)
+	_make_box(Vector3(-34.0, 6.2, -38.0), Vector3(36.0, 0.4, 36.0), dark, "concrete")   # roof
+	# Lobby (front) | two apartments (back), split by a doored wall.
+	_plan_wall_z(-38.0, aw, ae, [[-44.0, true], [-24.0, true]], plaster, "concrete", 6.0)
+	_plan_wall_x(-34.0, an, -38.0, [], plaster, "concrete", 6.0)
+	# Lobby: mailboxes, bench, dying light.
+	_make_box(Vector3(-51.2, 1.3, -30.0), Vector3(0.6, 1.6, 6.0), Color(0.55, 0.5, 0.4), "metal")
+	_make_sofa(Vector3(-24.0, 0, -35.0), Color(0.3, 0.28, 0.25))
+	_make_fluorescent_flicker(Vector3(-34.0, 5.2, -29.0))
+	_make_wall_text(Vector3(-34.0, 4.6, asx - 0.6), "THE MARLOWE\nAPARTMENTS", Color(0.75, 0.7, 0.55), Vector3.ZERO)
+	_add_gen_spot(Vector3(-42.0, 0, -26.0))
+	# Apartment W: bed, wardrobe — and a tenant who never made it out.
+	_make_bed(Vector3(-49.0, 0, -52.0), false, Color(0.4, 0.35, 0.3))
+	_make_box(Vector3(-36.5, 1.0, -52.5), Vector3(1.6, 2.0, 1.0), Color(0.3, 0.22, 0.15), "wood")
+	_make_corpse_prop(Vector3(-44.0, 0, -46.0))
+	_make_fluorescent_flicker(Vector3(-43.0, 5.2, -47.0))
+	# Apartment E: sofa, TV still hissing static, bed.
+	_make_sofa(Vector3(-26.0, 0, -50.0), Color(0.26, 0.3, 0.34))
+	_make_box(Vector3(-26.0, 0.9, -44.5), Vector3(1.8, 1.2, 0.4), Color(0.1, 0.1, 0.12), "metal")
+	var tv := MeshInstance3D.new()
+	var tvb := BoxMesh.new()
+	tvb.size = Vector3(1.5, 0.9, 0.05)
+	tv.mesh = tvb
+	tv.position = Vector3(-26.0, 0.95, -44.7)
+	var tvm := StandardMaterial3D.new()
+	tvm.albedo_color = Color(0.6, 0.65, 0.7)
+	tvm.emission_enabled = true
+	tvm.emission = Color(0.5, 0.55, 0.65)
+	tvm.emission_energy_multiplier = 0.9
+	tv.material_override = tvm
+	add_child(tv)
+	_make_bed(Vector3(-19.5, 0, -52.0), false, Color(0.45, 0.3, 0.3))
+	_make_fluorescent_flicker(Vector3(-25.0, 5.2, -48.0))
+
+	# ═══ NE: POLICE STATION — 13TH PRECINCT ═══
+	var pw := 16.0
+	var pe := 52.0
+	var pn := -52.0
+	var ps := -20.0
+	_plan_wall_z(ps, pw, pe, [[34.0, false]], conc, "concrete", 6.0)          # front doors
+	_plan_wall_z(pn, pw, pe, [], conc, "concrete", 6.0)
+	_plan_wall_x(pw, pn, ps, [], conc, "concrete", 6.0)
+	_plan_wall_x(pe, pn, ps, [[-36.0, true]], conc, "concrete", 6.0)          # side door
+	_make_box(Vector3(34.0, 6.2, -36.0), Vector3(36.0, 0.4, 32.0), dark, "concrete")
+	_make_wall_text(Vector3(34.0, 4.8, ps - 0.6), "POLICE — 13TH PRECINCT", Color(0.5, 0.65, 0.9), Vector3.ZERO)
+	# Reception desk facing the doors.
+	_make_box(Vector3(34.0, 0.6, -26.0), Vector3(5.0, 1.2, 1.2), Color(0.35, 0.28, 0.2), "wood")
+	# Office bullpen.
+	for dx in [28.0, 34.0, 40.0]:
+		for dz in [-34.0, -40.0]:
+			_make_desk(Vector3(dx, 0, dz), Color(0.38, 0.3, 0.22))
+	_make_terminal(Vector3(34.0, 1.5, -34.5),
+		"DISPATCH LOG — 03:12\n\nUnits 4, 7, 9: NO RESPONSE\nRiot at St. Mary's Hospital\nQuarantine line BROKEN\n\n[TRANSMIT FAILED]")
+	# Holding cell (SE corner of the station).
+	_plan_wall_x(42.0, pn + 1, -42.0, [[-46.5, true]], conc, "concrete", 4.0)
+	_make_box(Vector3(47.0, 2.0, -42.0), Vector3(10.0, 4.0, 0.4), conc, "concrete")
+	_make_box(Vector3(49.5, 0.35, -48.5), Vector3(2.4, 0.7, 1.1), Color(0.35, 0.36, 0.4), "metal")   # cot
+	_make_blood_splatter(Vector3(46.0, 1.6, -50.5), false)
+	# Evidence room (SW corner) — the door here never locks (generator inside).
+	_plan_wall_x(26.0, pn + 1, -40.0, [[-46.0, false]], conc, "concrete", 6.0)
+	_make_box(Vector3(21.0, 2.0, -40.0), Vector3(10.0, 4.0, 0.4), conc, "concrete")
+	_spawn_model(DUN + "/Crate.obj", Vector3(18.5, 0, -49.0), 1.5, Color(1, 1, 1), 0.4)
+	_make_box(Vector3(24.5, 1.0, -50.5), Vector3(2.6, 2.0, 0.8), Color(0.35, 0.37, 0.4), "metal")
+	_add_gen_spot(Vector3(21.0, 0, -45.0))
+	_make_fluorescent_flicker(Vector3(34.0, 5.2, -30.0))
+	_make_fluorescent_flicker(Vector3(30.0, 5.2, -44.0))
+	_add_gen_spot(Vector3(44.0, 0, -30.0))
+
+	# ═══ SW: CONVENIENCE STORE — "24/7 MART" ═══
+	var sw := -46.0
+	var se := -18.0
+	var sn := 20.0
+	var ss := 44.0
+	_plan_wall_z(sn, sw, se, [[-32.0, false]], brick, "brick", 5.0)           # front door
+	_plan_wall_z(ss, sw, se, [], brick, "brick", 5.0)
+	_plan_wall_x(sw, sn, ss, [], brick, "brick", 5.0)
+	_plan_wall_x(se, sn, ss, [], brick, "brick", 5.0)
+	_make_box(Vector3(-32.0, 5.3, 32.0), Vector3(28.0, 0.3, 24.0), dark, "concrete")
+	_make_neon_sign(Vector3(-32.0, 4.2, 19.2), "24/7 MART", Color(0.2, 0.95, 0.5), Vector3.ZERO)
+	# Counter + register by the door.
+	_make_box(Vector3(-42.0, 0.55, 24.0), Vector3(3.0, 1.1, 1.2), Color(0.5, 0.45, 0.4), "wood")
+	_cosmetic(_box_mesh(Vector3(0.6, 0.5, 0.5)), Vector3(-42.5, 1.35, 24.0), Color(0.2, 0.2, 0.24))
+	# Aisles.
+	for i in 3:
+		_make_store_shelf(Vector3(-36.0 + i * 6.0, 0, 33.0), false, 12.0)
+	# Freezers along the back wall, still glowing.
+	for fx in [-40.0, -35.0]:
+		_make_vending_machine(Vector3(fx, 0, 42.8))
+	# Looted mess.
+	for i in 6:
+		_cosmetic(_box_mesh(Vector3(0.4, 0.2, 0.3)),
+			Vector3(_rng.randf_range(-44.0, -20.0), 0.12, _rng.randf_range(22.0, 42.0)),
+			(pal[_rng.randi() % pal.size()] as Color).lightened(0.3))
+	_make_fluorescent_flicker(Vector3(-32.0, 4.4, 28.0))
+	_make_fluorescent_flicker(Vector3(-32.0, 4.4, 38.0))
+	_add_gen_spot(Vector3(-42.0, 0, 39.0))
+	# Back alley: dumpsters + graffiti.
+	_make_dumpster(Vector3(-42.0, 0, 48.5))
+	_make_dumpster(Vector3(-37.0, 0, 49.5))
+	_make_wall_text(Vector3(-30.0, 2.2, 44.8), "THEY COME OUT AT NIGHT", Color(0.7, 0.12, 0.1), Vector3.ZERO)
+	_add_gen_spot(Vector3(-50.0, 0, 50.0))
+
+	# ═══ SE: PARKING GARAGE (two walkable levels) ═══
+	var gx0 := 16.0
+	var gx1 := 60.0
+	var gz0 := 16.0
+	var gz1 := 56.0
+	_make_slab(Vector3((gx0 + gx1) * 0.5, 5.4, (gz0 + gz1) * 0.5), Vector2(gx1 - gx0, gz1 - gz0))
+	for gx in [20.0, 30.0, 40.0, 50.0, 58.0]:
+		for gz in [20.0, 30.0, 40.0, 52.0]:
+			_make_box(Vector3(gx, 2.7, gz), Vector3(0.7, 5.4, 0.7), conc, "concrete")
+	# Roof parapet (gap on the west edge where the ramp bridge lands).
+	_make_box(Vector3((gx0 + gx1) * 0.5, 5.95, gz1), Vector3(gx1 - gx0, 1.1, 0.3), conc, "concrete")
+	_make_box(Vector3((gx0 + gx1) * 0.5, 5.95, gz0), Vector3(gx1 - gx0, 1.1, 0.3), conc, "concrete")
+	_make_box(Vector3(gx1, 5.95, (gz0 + gz1) * 0.5), Vector3(0.3, 1.1, gz1 - gz0), conc, "concrete")
+	_make_box(Vector3(gx0, 5.95, 25.0), Vector3(0.3, 1.1, 18.0), conc, "concrete")
+	_make_box(Vector3(gx0, 5.95, 49.0), Vector3(0.3, 1.1, 14.0), conc, "concrete")
+	# External ramp up the west face + bridge onto the deck.
+	_make_ramp(Vector3(13.0, 0, 52.0), Vector3(0, 0, -1), 5.4, 14.0, 5.0)
+	_make_slab(Vector3(14.5, 5.4, 38.0), Vector2(5.0, 6.0))
+	# Parked cars, both levels.
+	_make_city_car(Vector3(25.0, 0, 24.0), true, pal[2].darkened(0.2))
+	_make_city_car(Vector3(35.0, 0, 44.0), false, pal[1])
+	_make_city_car(Vector3(48.0, 0, 30.0), true, pal[3])
+	_make_city_car(Vector3(30.0, 5.4, 24.0), true, pal[0].lightened(0.15))
+	_make_city_car(Vector3(44.0, 5.4, 36.0), false, pal[4].darkened(0.1))
+	_make_fluorescent_flicker(Vector3(30.0, 4.6, 30.0))
+	_make_fluorescent_flicker(Vector3(45.0, 4.6, 44.0))
+	_make_wall_text(Vector3(38.0, 3.0, gz0 + 0.6), "PARKING — LEVEL 1", Color(0.8, 0.6, 0.15), Vector3.ZERO)
+	_add_gen_spot(Vector3(25.0, 0, 36.0))
+	_add_gen_spot(Vector3(52.0, 0, 22.0))
+
+	# One more generator spot out on the open street corner.
+	_add_gen_spot(Vector3(12.0, 0, -12.0))

@@ -40,7 +40,7 @@ var tension: float = 0.0
 func hunter_speed_mult() -> float:
 	return 1.0 + 0.30 * clampf(tension, 0.0, 1.0)
 
-var selected_map:    String = "Urban"
+var selected_map:    String = "Cabin"
 const WEAPONS := ["knife", "cleaver", "axe", "katana", "sword", "hammer", "pickaxe", "baseballbat"]
 var selected_weapon: String = "knife"
 

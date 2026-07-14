@@ -1,10 +1,10 @@
-[gd_scene load_steps=2 format=3 uid="uid://cpanicmapurban"]
+[gd_scene load_steps=2 format=3 uid="uid://cpanicmapcabin"]
 
 [ext_resource type="Script" path="res://scripts/MapBase.gd" id="1_map"]
 
-[node name="UrbanDeprecated" type="Node3D"]
+[node name="Cabin" type="Node3D"]
 script = ExtResource("1_map")
 style = 0
 ground_color = Color(0.16, 0.22, 0.14, 1)
 obstacle_color = Color(0.2, 0.16, 0.12, 1)
-seed_v
+seed_value = 1001

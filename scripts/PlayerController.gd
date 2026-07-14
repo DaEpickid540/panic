@@ -36,6 +36,15 @@ const SWING_COOLDOWN := 0.60
 const KNIFE_SCENE := preload("res://scenes/KnifeProjectile.tscn")
 
 # ─────────────────────────────────────────────────────────────────────────────
+# SCOPED RIFLE  (one pickup per round — hold RMB to scope, LMB to fire)
+# ─────────────────────────────────────────────────────────────────────────────
+const GUN_ZOOM_FOV := 30.0    # aimed-down-scope field of view
+const GUN_FIRE_CD  := 15.0    # cooldown between shots — long, deliberate re-chamber
+const GUN_DAMAGE   := 2       # heavy hit (counts as a THROW-type wound)
+const GUN_STUN     := 0.4
+const GUN_RANGE    := 120.0
+
+# ─────────────────────────────────────────────────────────────────────────────
 # FLASHLIGHT
 # ─────────────────────────────────────────────────────────────────────────────
 const FLASH_DRAIN    := 0.16
@@ -120,6 +129,16 @@ var _knife: Node3D
 var flash_battery := 1.0   # read by HuntingUI
 var slowed := false
 
+## Scoped rifle state. gun_ammo == 0 means "no rifle".
+var gun_ammo := 0
+var _cooldown_remaining := 0.0   # seconds until the rifle can fire again
+var _gun_ready_flash := 0.0      # seconds left on the brief "READY" flash
+var _gun_cd_label: Label         # "RELOADING... Ns" readout near the scope
+var _gun: Node3D
+var _gun_aiming := false
+var _base_fov := 75.0
+var _scope_overlay: CanvasLayer
+
 var stamina := 1.0          # read by HuntingUI
 var _sprinting := false
 var _boost_timer := 0.0
@@ -163,6 +182,7 @@ func _ready() -> void:
 		peer_id = NetworkManager.local_peer_id
 	Avatar.build(_mesh)
 	_cam_base = _fps_cam.position   # remember resting spot for heartbeat shake
+	_base_fov = _fps_cam.fov
 	if is_local:
 		_build_heart_player()
 	configure_for_role(role)
@@ -184,6 +204,8 @@ func _build_heart_player() -> void:
 func configure_for_role(new_role: int) -> void:
 	role = new_role
 	_flashlight.visible = false
+	if new_role != GameManager.Role.HUNTER:
+		_drop_gun(false)   # rifle is hunter-only
 	if role != GameManager.Role.GHOST:
 		_clear_aim_ring()   # drop any leftover lightning reticle
 
@@ -288,6 +310,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 
 	if event.is_action_pressed("throw"):
+		if gun_ammo > 0:
+			return   # RMB is the scope while carrying the rifle
 		_throw_knife()
 
 
@@ -314,6 +338,7 @@ func _physics_process(delta: float) -> void:
 	_stun_timer         = maxf(0.0, _stun_timer         - delta)
 	swing_cd            = maxf(0.0, swing_cd            - delta)
 	_update_swing(delta)
+	_update_gun(delta)
 
 	# ── GHOST: free-fly + lightning grief, then bail out. ──
 	if role == GameManager.Role.GHOST:
@@ -644,7 +669,8 @@ func _input_to_world_dir(input: Vector2) -> Vector3:
 
 
 func _look_scale() -> float:
-	return mouse_sensitivity * GameManager.settings_sensitivity
+	# Scoped aim slows the look speed for fine adjustment.
+	return mouse_sensitivity * GameManager.settings_sensitivity * (0.35 if _gun_aiming else 1.0)
 
 
 func _apply_look(dyaw: float, dpitch: float) -> void:
@@ -693,6 +719,8 @@ func _throw_knife() -> void:
 ## Begin a melee blade swing if off cooldown. Returns true if the swing fired
 ## (so the caller may resolve the hit), false if still on cooldown.
 func swing_blade() -> bool:
+	if _gun_aiming:
+		return false   # LMB fires the rifle while scoped, not the blade
 	if swing_cd > 0.0 or role != GameManager.Role.HUNTER:
 		return false
 	swing_cd = SWING_COOLDOWN
@@ -723,6 +751,219 @@ func _simple_mat(color: Color, metal: bool) -> StandardMaterial3D:
 		m.metallic = 0.8
 		m.roughness = 0.25
 	return m
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SCOPED RIFLE
+# ─────────────────────────────────────────────────────────────────────────────
+
+## Grant the scoped rifle (called by the ScopedGun pickup).
+func give_scoped_gun(rounds: int) -> void:
+	gun_ammo += rounds
+	_cooldown_remaining = 0.4   # brief equip delay, not the full re-chamber
+	_ensure_gun_model()
+	if _knife and is_instance_valid(_knife):
+		_knife.visible = false
+	var ui := get_tree().get_first_node_in_group("hunting_ui")
+	if ui and ui.has_method("show_pickup_effect"):
+		ui.show_pickup_effect("SCOPED RIFLE — HOLD RMB TO AIM, LMB TO FIRE", true)
+
+
+## Per-frame rifle handling: hold "throw" (RMB) to scope, "capture" (LMB) fires.
+func _update_gun(delta: float) -> void:
+	var was_cooling := _cooldown_remaining > 0.0
+	_cooldown_remaining = maxf(0.0, _cooldown_remaining - delta)
+	if not is_local:
+		return
+	if role != GameManager.Role.HUNTER or gun_ammo <= 0:
+		_gun_ready_flash = 0.0
+		_update_gun_cd_label(delta, false)
+		if _gun_aiming:
+			_set_scope(false)
+		if absf(_fps_cam.fov - _base_fov) > 0.1:
+			_fps_cam.fov = lerpf(_fps_cam.fov, _base_fov, minf(1.0, delta * 10.0))
+		return
+	if was_cooling and _cooldown_remaining <= 0.0:
+		_gun_ready_flash = 1.2   # brief "READY" flash once re-chambered
+	_update_gun_cd_label(delta, true)
+	var want_aim := Input.is_action_pressed("throw") and not hidden_in_locker \
+		and _stun_timer <= 0.0
+	if want_aim != _gun_aiming:
+		_set_scope(want_aim)
+	var target_fov := GUN_ZOOM_FOV if _gun_aiming else _base_fov
+	_fps_cam.fov = lerpf(_fps_cam.fov, target_fov, minf(1.0, delta * 10.0))
+	if _scope_overlay:
+		_scope_overlay.visible = _gun_aiming and _fps_cam.fov < GUN_ZOOM_FOV + 14.0
+	if _gun_aiming and _cooldown_remaining <= 0.0 and Input.is_action_just_pressed("capture"):
+		_fire_gun()
+	# Ease the rifle viewmodel toward the screen centre while scoped.
+	if _gun and is_instance_valid(_gun):
+		var rest := Vector3(0.28, -0.24, -0.55)
+		var aimed := Vector3(0.0, -0.16, -0.42)
+		_gun.position = _gun.position.lerp(aimed if _gun_aiming else rest, minf(1.0, delta * 12.0))
+
+
+func _set_scope(on: bool) -> void:
+	_gun_aiming = on
+	if on and (_scope_overlay == null or not is_instance_valid(_scope_overlay)):
+		_build_scope_overlay()
+	if not on and _scope_overlay and is_instance_valid(_scope_overlay):
+		_scope_overlay.visible = false
+
+
+## Cooldown readout above the scope area: "RELOADING... 12s" while the rifle
+## re-chambers, then a brief green "READY" flash once it can fire again.
+func _update_gun_cd_label(delta: float, holding: bool) -> void:
+	_gun_ready_flash = maxf(0.0, _gun_ready_flash - delta)
+	var show := holding and (_cooldown_remaining > 0.0 or _gun_ready_flash > 0.0)
+	if not show:
+		if _gun_cd_label and is_instance_valid(_gun_cd_label):
+			_gun_cd_label.visible = false
+		return
+	if _gun_cd_label == null or not is_instance_valid(_gun_cd_label):
+		var layer := CanvasLayer.new()
+		layer.layer = 61   # just above the scope overlay (60)
+		add_child(layer)
+		_gun_cd_label = Label.new()
+		_gun_cd_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_gun_cd_label.add_theme_font_size_override("font_size", 22)
+		_gun_cd_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
+		_gun_cd_label.add_theme_constant_override("outline_size", 6)
+		layer.add_child(_gun_cd_label)
+		_gun_cd_label.set_anchors_preset(Control.PRESET_CENTER_TOP)
+		_gun_cd_label.grow_horizontal = Control.GROW_DIRECTION_BOTH
+		_gun_cd_label.position.y = 96.0
+	_gun_cd_label.visible = true
+	if _cooldown_remaining > 0.0:
+		_gun_cd_label.text = "RELOADING... %ds" % int(ceilf(_cooldown_remaining))
+		_gun_cd_label.add_theme_color_override("font_color", Color(1.0, 0.55, 0.25))
+	else:
+		_gun_cd_label.text = "READY"
+		_gun_cd_label.add_theme_color_override("font_color", Color(0.45, 1.0, 0.55))
+
+
+## Single hitscan shot: walls block it, runners take a heavy THROW-type hit.
+func _fire_gun() -> void:
+	_cooldown_remaining = GUN_FIRE_CD
+	gun_ammo -= 1
+	AudioManager.play_sfx("thunder", -8.0)
+	# Recoil kick.
+	_pitch = clampf(_pitch + 0.035, -1.4, 1.4)
+	$Head.rotation.x = _pitch
+	# Muzzle flash.
+	var flash := OmniLight3D.new()
+	flash.light_color = Color(1.0, 0.85, 0.5)
+	flash.light_energy = 3.0
+	flash.omni_range = 8.0
+	_fps_cam.add_child(flash)
+	flash.position = Vector3(0.0, -0.1, -1.0)
+	get_tree().create_timer(0.06).timeout.connect(func() -> void:
+		if is_instance_valid(flash):
+			flash.queue_free())
+	# Hitscan from the camera.
+	var from := _fps_cam.global_position
+	var dir := -_fps_cam.global_transform.basis.z
+	var query := PhysicsRayQueryParameters3D.create(from, from + dir * GUN_RANGE, 1 | (1 << 1))
+	query.exclude = [get_rid()]
+	var hit := get_world_3d().direct_space_state.intersect_ray(query)
+	var ui := get_tree().get_first_node_in_group("hunting_ui")
+	if not hit.is_empty():
+		var rp = (hit.collider as Node).get_parent()
+		if rp != null and ("peer_id" in rp) and ("role" in rp) \
+				and rp.role == GameManager.Role.HUNTED:
+			GameManager.grief_runner(rp, peer_id, GUN_DAMAGE, GUN_STUN, "throw")
+			if ui and ui.has_method("show_pickup_effect"):
+				ui.show_pickup_effect("RIFLE HIT", true)
+	if gun_ammo <= 0:
+		_drop_gun(true)
+	elif ui and ui.has_method("show_pickup_effect"):
+		ui.show_pickup_effect("%d ROUND%s LEFT" % [gun_ammo, "" if gun_ammo == 1 else "S"], true)
+
+
+## Discard the rifle (empty clip or role change) and bring the blade back.
+func _drop_gun(announce: bool) -> void:
+	if gun_ammo <= 0 and _gun == null and not _gun_aiming:
+		return
+	gun_ammo = 0
+	_set_scope(false)
+	if _gun and is_instance_valid(_gun):
+		_gun.queue_free()
+	_gun = null
+	if _fps_cam:
+		_fps_cam.fov = _base_fov
+	if _knife and is_instance_valid(_knife):
+		_knife.visible = true
+	if announce:
+		var ui := get_tree().get_first_node_in_group("hunting_ui")
+		if ui and ui.has_method("show_pickup_effect"):
+			ui.show_pickup_effect("RIFLE EMPTY — DISCARDED", false)
+
+
+## First-person rifle viewmodel (barrel, receiver, stock, scope).
+func _ensure_gun_model() -> void:
+	if _gun and is_instance_valid(_gun):
+		_gun.visible = true
+		return
+	_gun = Node3D.new()
+	_fps_cam.add_child(_gun)
+	_gun.position = Vector3(0.28, -0.24, -0.55)
+	var dark := _simple_mat(Color(0.22, 0.23, 0.26), true)
+	var barrel := MeshInstance3D.new()
+	var bm := CylinderMesh.new()
+	bm.top_radius = 0.018
+	bm.bottom_radius = 0.024
+	bm.height = 0.6
+	barrel.mesh = bm
+	barrel.rotation.x = PI * 0.5
+	barrel.position = Vector3(0, 0.02, -0.35)
+	barrel.material_override = _simple_mat(Color(0.32, 0.33, 0.38), true)
+	_gun.add_child(barrel)
+	var gbody := MeshInstance3D.new()
+	var bb := BoxMesh.new()
+	bb.size = Vector3(0.05, 0.09, 0.34)
+	gbody.mesh = bb
+	gbody.material_override = dark
+	_gun.add_child(gbody)
+	var stock := MeshInstance3D.new()
+	var sb := BoxMesh.new()
+	sb.size = Vector3(0.045, 0.1, 0.22)
+	stock.mesh = sb
+	stock.position = Vector3(0, -0.02, 0.25)
+	stock.material_override = _simple_mat(Color(0.3, 0.2, 0.12), false)
+	_gun.add_child(stock)
+	var scope := MeshInstance3D.new()
+	var sc := CylinderMesh.new()
+	sc.top_radius = 0.026
+	sc.bottom_radius = 0.026
+	sc.height = 0.18
+	scope.mesh = sc
+	scope.rotation.x = PI * 0.5
+	scope.position = Vector3(0, 0.085, -0.04)
+	scope.material_override = dark
+	_gun.add_child(scope)
+
+
+## Fullscreen scope mask: black annulus + ring + crosshair, drawn procedurally.
+func _build_scope_overlay() -> void:
+	_scope_overlay = CanvasLayer.new()
+	_scope_overlay.layer = 60
+	add_child(_scope_overlay)
+	var c := Control.new()
+	c.set_anchors_preset(Control.PRESET_FULL_RECT)
+	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_scope_overlay.add_child(c)
+	c.draw.connect(func() -> void:
+		var s := c.size
+		var centre := s * 0.5
+		var r := minf(s.x, s.y) * 0.40
+		var black := Color(0, 0, 0, 0.94)
+		# One very wide arc = an annulus that masks everything outside the lens.
+		c.draw_arc(centre, r + s.x * 0.5, 0.0, TAU, 96, black, s.x)
+		c.draw_arc(centre, r, 0.0, TAU, 96, Color(0.05, 0.05, 0.05), 6.0)
+		c.draw_line(centre - Vector2(r, 0), centre + Vector2(r, 0), Color(0.1, 0.1, 0.1, 0.9), 1.5)
+		c.draw_line(centre - Vector2(0, r), centre + Vector2(0, r), Color(0.1, 0.1, 0.1, 0.9), 1.5)
+		c.draw_circle(centre, 2.5, Color(0.9, 0.1, 0.1)))
+	_scope_overlay.visible = false
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -771,77 +1012,3 @@ func take_damage(amount: int = 1, by_peer_id: int = -1, hit_type: String = "mele
 	if hp <= 0:
 		if _hit_by_melee and _hit_by_throw:
 			GameManager.capture_player(peer_id, by_peer_id)
-		else:
-			hp = 1
-			if is_local:
-				var ui := get_tree().get_first_node_in_group("hunting_ui")
-				if ui and ui.has_method("show_pickup_effect"):
-					var need := "THROW" if _hit_by_melee else "MELEE"
-					ui.show_pickup_effect("NEED %s HIT TO FINISH" % need, false)
-	if hp > 0 and is_local:
-		_slow_debuff_timer = maxf(_slow_debuff_timer, 0.5)
-		var ui := get_tree().get_first_node_in_group("hunting_ui")
-		if ui and ui.has_method("flash_damage"):
-			ui.flash_damage(hp)
-
-
-## Movement penalty from injury — progressive cripple across 5 HP.
-func _cripple_mult() -> float:
-	match hp:
-		4: return 0.92
-		3: return 0.82
-		2: return 0.68
-		1: return 0.52
-		_: return 1.0
-
-
-## Generator repair speed penalty from injury.
-func repair_mult() -> float:
-	match hp:
-		4: return 0.90
-		3: return 0.75
-		2: return 0.50
-		1: return 0.30
-		_: return 1.0
-
-
-## Freeze the runner in place (ghost lightning grief).
-func apply_stun(duration: float) -> void:
-	if role != GameManager.Role.HUNTED:
-		return
-	_stun_timer = maxf(_stun_timer, duration)
-
-
-var _current_interactable: Node = null
-
-func _try_interact() -> void:
-	var ui := get_tree().get_first_node_in_group("hunting_ui")
-	if _current_interactable != null:
-		_current_interactable.close()
-		_current_interactable = null
-		if ui and ui.has_method("hide_interact_doc"):
-			ui.hide_interact_doc()
-		return
-	var best: Node = null
-	var best_dist := 999.0
-	for n in get_tree().get_nodes_in_group("interactable"):
-		if not is_instance_valid(n):
-			continue
-		var d := global_position.distance_to(n.global_position)
-		if d < 3.5 and d < best_dist:
-			best_dist = d
-			best = n
-	if best != null:
-		best.open()
-		_current_interactable = best
-		if ui and ui.has_method("show_interact_doc"):
-			ui.show_interact_doc(best.title, best.body)
-
-
-func _set_ghost_transparency() -> void:
-	var mat := StandardMaterial3D.new()
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mat.albedo_color = RemotePlayer.id_color(peer_id, 0.4)
-	mat.emission_enabled = true
-	mat.emission = RemotePlayer.id_color(peer_id) * 0.5
-	Avatar.set_material(_mesh, mat)

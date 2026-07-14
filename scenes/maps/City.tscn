@@ -1,0 +1,10 @@
+[gd_scene load_steps=2 format=3 uid="uid://cpanicmapcity1"]
+
+[ext_resource type="Script" path="res://scripts/MapBase.gd" id="1_map"]
+
+[node name="City" type="Node3D"]
+script = ExtResource("1_map")
+style = 12
+ground_color = Color(0.2, 0.2, 0.23, 1)
+obstacle_color = Color(0.17, 0.18, 0.21, 1)
+seed_value = 4242

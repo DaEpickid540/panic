@@ -28,6 +28,32 @@ func setup(spawner: Node, bound: float, count: int, need: int = -1) -> void:
 	var b := maxf(bound - 8.0, 12.0)
 	var used: Array[Vector3] = []
 
+	# Pass 0: curated spawn points published by the map ("generator_spawn"
+	# markers). Shuffled with a fresh RNG so the chosen subset — and therefore
+	# the generator locations — changes every round. Each spot is still
+	# physics-validated in case round furniture/doors ended up on top of it.
+	var markers := get_tree().get_nodes_in_group("generator_spawn")
+	for i in range(markers.size() - 1, 0, -1):
+		var j := rng.randi_range(0, i)
+		var tmp = markers[i]
+		markers[i] = markers[j]
+		markers[j] = tmp
+	for mk in markers:
+		if used.size() >= count:
+			break
+		if not (mk is Node3D) or not (mk as Node3D).is_inside_tree():
+			continue
+		var pos: Vector3 = (mk as Node3D).global_position
+		pos.y = 0.0
+		var too_close := false
+		for u in used:
+			if u.distance_to(pos) < 10.0:
+				too_close = true
+				break
+		if too_close or not _is_open(space, pos):
+			continue
+		used.append(pos)
+
 	# Pass 1: strict — validated open spots with comfortable spacing.
 	_scatter(rng, space, b, count, 12.0, used)
 	# Pass 2: relax spacing if the strict pass came up short (dense maps).

@@ -8,6 +8,7 @@ const CENTER_CLEAR  := 14.0
 const HOVER_Y       := 1.2
 
 const PICKUP_SCRIPT := preload("res://scripts/Pickup.gd")
+const GUN_SCRIPT    := preload("res://scripts/ScopedGun.gd")
 
 var _spawner: Node
 var _bound: float = 40.0
@@ -24,6 +25,11 @@ func setup(spawner: Node, bound: float) -> void:
 		add_child(p)
 		p.global_position = pos
 		p.setup(_spawner)
+	# One scoped rifle per round, floating somewhere in the arena (hunter-only).
+	var gun: Node3D = GUN_SCRIPT.new()
+	add_child(gun)
+	gun.global_position = _random_spot()
+	gun.setup(_spawner)
 
 
 func _random_spot() -> Vector3:

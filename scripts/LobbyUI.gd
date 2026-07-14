@@ -5,7 +5,7 @@ extends Control
 ## RIGHT:  Map → Weapon → Round time → Game mode      (match config, host-only)
 ## BOTTOM: HOST GAME · ADD BOT | START GAME            (actions)
 
-const MAPS := ["Urban", "Forest", "Warehouse", "Mansion", "Neon", "Graveyard",
+const MAPS := ["Cabin", "City", "Forest", "Warehouse", "Mansion", "Neon", "Graveyard",
 	"Maze", "Dungeon", "School", "Cave", "Lab"]
 
 @onready var _count: Label = $Left/V/Head/PlayerCount

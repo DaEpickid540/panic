@@ -4,7 +4,8 @@ extends Node3D
 ## (shadow entities, mirages, lockers) alongside the existing pickups.
 
 const MAP_SCENES := {
-	"Urban":     "res://scenes/maps/Urban.tscn",
+	"Cabin":     "res://scenes/maps/Cabin.tscn",
+	"City":      "res://scenes/maps/City.tscn",
 	"Forest":    "res://scenes/maps/Forest.tscn",
 	"Warehouse": "res://scenes/maps/Warehouse.tscn",
 	"Mansion":   "res://scenes/maps/Mansion.tscn",
@@ -420,7 +421,7 @@ func _arena_bound() -> float:
 func _load_map(map_name: String) -> void:
 	for c in _map_root.get_children():
 		c.queue_free()
-	var path: String  = MAP_SCENES.get(map_name, MAP_SCENES["Urban"])
+	var path: String  = MAP_SCENES.get(map_name, MAP_SCENES["Cabin"])
 	var scene: PackedScene = load(path)
 	var map := scene.instantiate()
 	_map_root.add_child(map)
