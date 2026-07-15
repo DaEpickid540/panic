@@ -453,6 +453,12 @@ func _attach_capture_detector() -> void:
 	_capture_detector.setup(_spawner.local_player)
 
 
+func _detach_capture_detector() -> void:
+	if _capture_detector and is_instance_valid(_capture_detector):
+		_capture_detector.queue_free()
+	_capture_detector = null
+
+
 func _on_role_assigned(peer_id: int, role: int) -> void:
 	if not _active:
 		return
@@ -461,10 +467,16 @@ func _on_role_assigned(peer_id: int, role: int) -> void:
 		if _spawner.local_player and is_instance_valid(_spawner.local_player):
 			_spawner.local_player.configure_for_role(role)
 			_spawner.local_player.slowed = was_revived
-			# Infection: a runner who just turned needs the capture raycast so
-			# they can actually infect others.
+			# Infection/TAG: a runner who just turned needs the capture raycast so
+			# they can actually tag/infect others.
 			if role == GameManager.Role.HUNTER:
 				_attach_capture_detector()
+			elif role == GameManager.Role.HUNTED:
+				# TAG demotes the old "it" back to a runner — drop the capture
+				# raycast and hand them back the runner audio.
+				_detach_capture_detector()
+				if _hunted_audio:
+					_hunted_audio.start()
 	else:
 		var rp = _spawner.get_remote(peer_id)
 		if rp:
@@ -478,8 +490,10 @@ func _on_player_captured(peer_id: int, _by: int) -> void:
 		var rp = _spawner.get_remote(peer_id)
 		if rp:
 			_hunter_audio.play_event("capture", rp.global_position)
-	# Drop a body + blood splatter where they died.
-	_spawn_corpse(peer_id)
+	# In TAG the tagged player becomes the new hunter (not a body) — no corpse.
+	if GameManager.game_mode != GameManager.Mode.TAG:
+		# Drop a body + blood splatter where they died.
+		_spawn_corpse(peer_id)
 	if peer_id == NetworkManager.local_peer_id:
 		if _hunted_audio:
 			_hunted_audio.on_capture()
