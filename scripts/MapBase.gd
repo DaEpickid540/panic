@@ -505,6 +505,18 @@ func _build_dungeon_layout() -> void:
 		for gz in [-_half * 0.66, -_half * 0.33, 0.0, _half * 0.33, _half * 0.66]:
 			_make_torch(Vector3(gx, 4.2, gz))
 
+	# Curated generator spots at chamber centres (midway between the partition
+	# lines at +-11 and +-31), clear of walls and doorways.
+	var chamber := _half * 0.41   # ~21 m — centre of the mid ring of chambers
+	_add_gen_spot(Vector3(-chamber, 0, -chamber))
+	_add_gen_spot(Vector3(chamber, 0, -chamber))
+	_add_gen_spot(Vector3(-chamber, 0, chamber))
+	_add_gen_spot(Vector3(chamber, 0, chamber))
+	_add_gen_spot(Vector3(0, 0, -chamber))
+	_add_gen_spot(Vector3(0, 0, chamber))
+	_add_gen_spot(Vector3(-chamber, 0, 0))
+	_add_gen_spot(Vector3(chamber, 0, 0))
+
 
 ## A flickering wall torch: ember bulb + warm flickering omni light.
 func _make_torch(pos: Vector3) -> void:
@@ -930,6 +942,13 @@ func _build_cave_layout() -> void:
 				_rng.randf_range(-_half + 12, _half - 12))
 		if wp.length() > CENTER_CLEAR:
 			_make_cave_pool(wp)
+
+	# Curated generator spots ringed around the cavern floor, clear of the
+	# central arena and the walls. Rocks that land on one are skipped at spawn.
+	var gr := _half * 0.5   # ~26 m ring
+	for a in 8:
+		var ang := TAU * a / 8.0
+		_add_gen_spot(Vector3(cos(ang) * gr, 0, sin(ang) * gr))
 
 	# Cave art mural on one wall — crude charcoal drawings
 	_make_wall_text(Vector3(-_half + 2.5, 3.5, _rng.randf_range(-10, 10)),
@@ -1653,6 +1672,14 @@ func _build_factory_layout() -> void:
 		for gz in [-inner * 0.6, -inner * 0.2, inner * 0.2, inner * 0.6]:
 			_add_ceiling_light(Vector3(gx, WALL_HEIGHT - 1.5, gz))
 
+	# Curated generator spots in the walkable aisles between shelf rows and on the
+	# open ground-floor edges. Racks/crates that overlap one are skipped at spawn.
+	for az in [-28.5, -6.5, 4.5]:
+		_add_gen_spot(Vector3(-inner + 10.0, 0, az))
+		_add_gen_spot(Vector3(inner - 10.0, 0, az))
+	_add_gen_spot(Vector3(0, 0, mez_front - 6.0))    # open floor south of the mezzanine
+	_add_gen_spot(Vector3(0, 0, -inner + 14.0))      # open strip by the machine line
+
 
 ## A waist-high railing along one axis with a central gap (for ramp access).
 func _make_railing_gapped(center: Vector3, along_x: bool, span: float, gap: float) -> void:
@@ -2191,6 +2218,18 @@ func _build_indoor_layout() -> void:
 	for gx in [-_half * 0.66, -_half * 0.33, 0.0, _half * 0.33, _half * 0.66]:
 		for gz in [-_half * 0.66, -_half * 0.33, 0.0, _half * 0.33, _half * 0.66]:
 			_add_ceiling_light(Vector3(gx, WALL_HEIGHT - 1.5, gz))
+
+	# Curated generator spots at room centres (midway between the partition lines),
+	# clear of the walls and doorways. Furniture overlaps are skipped at spawn.
+	var room := _half * 0.41
+	_add_gen_spot(Vector3(-room, 0, -room))
+	_add_gen_spot(Vector3(room, 0, -room))
+	_add_gen_spot(Vector3(-room, 0, room))
+	_add_gen_spot(Vector3(room, 0, room))
+	_add_gen_spot(Vector3(0, 0, -room))
+	_add_gen_spot(Vector3(0, 0, room))
+	_add_gen_spot(Vector3(-room, 0, 0))
+	_add_gen_spot(Vector3(room, 0, 0))
 
 
 ## Random furniture for an indoor room (reuses existing structure builders).
