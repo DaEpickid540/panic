@@ -458,6 +458,13 @@ func _build_forest_layout() -> void:
 				Color(0.30, 0.5, 0.22), 0.0, false)   # undergrowth, no collision
 		placed += 1
 
+	# Curated generator spots ringed through the woods. Trees that land on one are
+	# skipped at spawn, leaving the generator in a small clearing.
+	for a in 8:
+		var ang := TAU * a / 8.0 + 0.2
+		var rad := 34.0 + (a % 2) * 14.0
+		_add_gen_spot(Vector3(cos(ang) * rad, 0, sin(ang) * rad))
+
 
 ## Torch-lit modular dungeon: stone rooms/corridors dressed with the Modular
 ## Dungeon kit (barrels, chests, columns, crates) and flickering wall torches.
