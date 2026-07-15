@@ -208,6 +208,17 @@ func _ready() -> void:
 	_build_spawns()
 
 
+## True for fully-enclosed building maps (walls + ceiling). Objective/pickup
+## placement uses this to keep spawns inside the interior shell.
+func is_enclosed() -> bool:
+	return _indoor
+
+
+## Interior half-extent generators/pickups should stay within.
+func interior_half() -> float:
+	return _half
+
+
 ## --- Lighting (per style) ------------------------------------------------
 
 ## Near-pitch-black horror night with thick fog. Hunter relies on the flashlight;

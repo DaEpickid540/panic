@@ -14,9 +14,13 @@ const GEN_SCRIPT := preload("res://scripts/Generator.gd")
 var total := 0
 var required := 0
 var done := 0
+## When true (enclosed building maps), a candidate must also have a ceiling
+## overhead — this rejects the dead space outside the building's shell.
+var _enclosed := false
 
 
-func setup(spawner: Node, bound: float, count: int, need: int = -1) -> void:
+func setup(spawner: Node, bound: float, count: int, need: int = -1, enclosed := false) -> void:
+	_enclosed = enclosed
 	var rng := RandomNumberGenerator.new()
 	rng.randomize()
 	# Let the freshly-built map register its static bodies in the physics space
@@ -110,10 +114,19 @@ func _is_open(space: PhysicsDirectSpaceState3D, pos: Vector3) -> bool:
 	q.collision_mask = 1
 	if not space.intersect_shape(q, 1).is_empty():
 		return false
-	# Floor check — a ray straight down must hit something solid.
+	# Floor check — a ray straight down must hit something solid near ground level.
 	var ray := PhysicsRayQueryParameters3D.create(
 		pos + Vector3(0, 2.5, 0), pos + Vector3(0, -1.5, 0), 1)
-	return not space.intersect_ray(ray).is_empty()
+	if space.intersect_ray(ray).is_empty():
+		return false
+	# Enclosed maps: require a ceiling/roof overhead so we never place a generator
+	# in the open dead space outside the building shell.
+	if _enclosed:
+		var up := PhysicsRayQueryParameters3D.create(
+			pos + Vector3(0, 2.5, 0), pos + Vector3(0, 18.0, 0), 1)
+		if space.intersect_ray(up).is_empty():
+			return false
+	return true
 
 
 func _on_done() -> void:

@@ -169,8 +169,25 @@ func _on_parkour_finish(pid: int) -> void:
 func _spawn_objectives() -> void:
 	_objectives = preload("res://scripts/ObjectiveController.gd").new()
 	_map_root.add_child(_objectives)
-	_objectives.setup(_spawner, _arena_bound(), GameManager.gen_count, GameManager.gen_required)
+	# Tell the placer whether this is an enclosed building so it can keep
+	# generators inside the interior shell (never in the dead space outside).
+	var enclosed := false
+	var bound := _arena_bound()
+	var map := _current_map()
+	if map and map.has_method("is_enclosed"):
+		enclosed = map.is_enclosed()
+		if enclosed and map.has_method("interior_half"):
+			bound = minf(bound, map.interior_half())
+	_objectives.setup(_spawner, bound, GameManager.gen_count, GameManager.gen_required, enclosed)
 	_objectives.all_complete.connect(_on_objectives_done)
+
+
+## The currently-loaded MapBase instance (first child of the map root).
+func _current_map() -> Node:
+	for c in _map_root.get_children():
+		if c.has_method("is_enclosed"):
+			return c
+	return null
 
 
 func _on_objectives_done() -> void:
