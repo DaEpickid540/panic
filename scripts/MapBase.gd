@@ -598,6 +598,18 @@ func _build_school_layout() -> void:
 		_make_locker_bank(Vector3(lx, 0, -hall_w + 0.8), true)
 		_make_locker_bank(Vector3(lx, 0, hall_w - 0.8), true)
 
+	# Curated generator spots — open ground-floor spaces (hallway, cafeteria aisle,
+	# classroom fronts, lobby). Physics-validated at spawn, so any that a desk or
+	# table lands on is simply skipped.
+	_add_gen_spot(Vector3(-30, 0, 0))          # west hallway
+	_add_gen_spot(Vector3(18, 0, 0))           # east hallway
+	_add_gen_spot(Vector3(24, 0, -20))         # cafeteria, east of the tables
+	_add_gen_spot(Vector3(-8, 0, -44))         # cafeteria, north wall
+	_add_gen_spot(Vector3(-24, 0, hall_w + 24))  # behind south classrooms
+	_add_gen_spot(Vector3(20, 0, hall_w + 24))   # behind south classrooms
+	_add_gen_spot(Vector3(h - 6, 0, 8))        # entrance lobby
+	_add_gen_spot(Vector3(-h + 20, 0, -22))    # cafeteria, west aisle
+
 	# ── SECOND FLOOR (platform slab) ──
 	# The upper floor is a U-shape: south classrooms + west library + east science lab
 	# with a balcony/mezzanine overlooking the cafeteria
