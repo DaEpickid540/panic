@@ -15,9 +15,17 @@ signal player_revived(peer_id: int)
 
 enum Phase { LOBBY, COUNTDOWN, HUNTING, END }
 enum Role  { HUNTER, HUNTED, GHOST }
-enum Mode  { STANDARD, PARKOUR, INFECTION }
+## STANDARD  — hiders power generators to escape; captured hiders become ghosts.
+## PARKOUR   — race the course in the white void.
+## INFECTION — captured hiders turn into hunters until everyone is infected.
+## TAG       — tagging swaps roles: the tagger becomes a runner, the tagged the hunter.
+enum Mode  { STANDARD, PARKOUR, INFECTION, TAG }
 
 var game_mode: int = Mode.STANDARD
+
+## Fun / endless mode. When true the generator-escape win and the all-captured
+## end are disabled so the match runs continuously until the round timer ends.
+var fun_mode: bool = false
 
 const ROLE_NAMES := {
 	Role.HUNTER: "hunter",
@@ -102,6 +110,7 @@ func load_settings() -> void:
 		debug_overlay        = bool(cfg.get_value("debug",     "overlay",     false))
 		killer_count         = int(cfg.get_value("match",      "killers",     1))
 		parkour_difficulty   = int(cfg.get_value("match",      "parkour_diff", 1))
+		fun_mode             = bool(cfg.get_value("match",     "fun_mode",    false))
 	AudioManager.set_master_volume(settings_master)
 
 func save_settings() -> void:
@@ -112,6 +121,7 @@ func save_settings() -> void:
 	cfg.set_value("debug",    "overlay",     debug_overlay)
 	cfg.set_value("match",    "killers",     killer_count)
 	cfg.set_value("match",    "parkour_diff", parkour_difficulty)
+	cfg.set_value("match",    "fun_mode",    fun_mode)
 	cfg.save(SETTINGS_PATH)
 
 func set_sensitivity(value: float) -> void:
@@ -323,7 +333,14 @@ func capture_player(peer_id: int, by_peer_id: int) -> void:
 	if get_role(peer_id) != Role.HUNTED:
 		return
 	var new_role: int
-	if game_mode == Mode.INFECTION:
+	if game_mode == Mode.TAG:
+		# The tagged runner becomes the hunter; the tagger drops to a runner.
+		new_role = Role.HUNTER
+		capture_counts[peer_id] = 0
+		if by_peer_id >= 0 and roles.get(by_peer_id) == Role.HUNTER:
+			roles[by_peer_id] = Role.HUNTED
+			role_assigned.emit(by_peer_id, Role.HUNTED)
+	elif game_mode == Mode.INFECTION:
 		new_role = Role.HUNTER
 		capture_counts[peer_id] = 0
 	else:
@@ -351,6 +368,10 @@ func revive_player(peer_id: int) -> void:
 		GameStateSync.push_roles(roles)
 
 func _check_end_condition() -> void:
+	# TAG always has exactly one hunter and never "runs out" of runners, and fun
+	# mode is explicitly endless — neither ends early on capture.
+	if game_mode == Mode.TAG or fun_mode:
+		return
 	var hunted_left := 0
 	for id in roles:
 		if roles[id] == Role.HUNTED:
