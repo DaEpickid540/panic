@@ -192,6 +192,29 @@ size_flags_horizontal = 3
 toggle_mode = true
 text = "INFECTION"
 
+[node name="TagBtn" type="Button" parent="Right/V/ModeRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+toggle_mode = true
+text = "TAG"
+
+[node name="FunRow" type="HBoxContainer" parent="Right/V"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="FunLabel" type="Label" parent="Right/V/FunRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.45, 0.38, 0.38, 1)
+theme_override_font_sizes/font_size = 12
+text = "FUN MODE (ENDLESS · NO GENERATOR WIN)"
+
+[node name="FunBtn" type="Button" parent="Right/V/FunRow"]
+layout_mode = 2
+custom_minimum_size = Vector2(60, 28)
+toggle_mode = true
+text = "OFF"
+
 [node name="Bottom" type="HBoxContainer" parent="."]
 layout_mode = 1
 anchor_top = 1.0

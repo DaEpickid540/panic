@@ -54,6 +54,7 @@ func _ready() -> void:
 	var std_btn: Button = rv.get_node("ModeRow/StandardBtn")
 	var pkr_btn: Button = rv.get_node("ModeRow/ParkourBtn")
 	var inf_btn: Button = rv.get_node("ModeRow/InfectionBtn")
+	var tag_btn: Button = rv.get_node("ModeRow/TagBtn")
 	var rscroll := ScrollContainer.new()
 	rscroll.layout_mode = 2
 	rscroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -92,9 +93,10 @@ func _ready() -> void:
 	for b in _weapon_grid.get_children():
 		_host_controls.append(b)
 
-	var mode_btns: Array[Button] = [std_btn, pkr_btn, inf_btn]
+	var mode_btns: Array[Button] = [std_btn, pkr_btn, inf_btn, tag_btn]
 	var mode_vals: Array[int] = [
-		GameManager.Mode.STANDARD, GameManager.Mode.PARKOUR, GameManager.Mode.INFECTION]
+		GameManager.Mode.STANDARD, GameManager.Mode.PARKOUR,
+		GameManager.Mode.INFECTION, GameManager.Mode.TAG]
 	for i in mode_btns.size():
 		var btn := mode_btns[i]
 		var mode_val: int = mode_vals[i]
@@ -106,7 +108,23 @@ func _ready() -> void:
 			for j in mode_btns.size():
 				var sel: bool = (mode_vals[j] == mode_val)
 				mode_btns[j].button_pressed = sel
-				_apply_sel_style(mode_btns[j], sel))
+				_apply_sel_style(mode_btns[j], sel)
+			if NetworkManager._in_room:
+				GameStateSync.push_lobby_settings())
+
+	# Fun / endless mode toggle (host-configurable, synced to joiners).
+	var fun_btn: Button = rv.get_node("FunRow/FunBtn")
+	_host_controls.append(fun_btn)
+	fun_btn.button_pressed = GameManager.fun_mode
+	fun_btn.text = "ON" if GameManager.fun_mode else "OFF"
+	_apply_sel_style(fun_btn, GameManager.fun_mode)
+	fun_btn.pressed.connect(func():
+		GameManager.fun_mode = fun_btn.button_pressed
+		fun_btn.text = "ON" if GameManager.fun_mode else "OFF"
+		_apply_sel_style(fun_btn, GameManager.fun_mode)
+		GameManager.save_settings()
+		if NetworkManager._in_room:
+			GameStateSync.push_lobby_settings())
 
 
 func _process(delta: float) -> void:
@@ -495,8 +513,35 @@ func _on_lobby_settings(settings: Dictionary) -> void:
 		GameManager.killer_count = int(settings["killers"])
 	if settings.has("mode"):
 		GameManager.game_mode = int(settings["mode"])
+		_highlight_mode(GameManager.game_mode)
 	if settings.has("pdiff"):
 		GameManager.parkour_difficulty = int(settings["pdiff"])
+	if settings.has("fun"):
+		GameManager.fun_mode = bool(settings["fun"])
+		_highlight_fun(GameManager.fun_mode)
+
+
+func _highlight_mode(mode_val: int) -> void:
+	var names := {
+		GameManager.Mode.STANDARD: "StandardBtn",
+		GameManager.Mode.PARKOUR: "ParkourBtn",
+		GameManager.Mode.INFECTION: "InfectionBtn",
+		GameManager.Mode.TAG: "TagBtn",
+	}
+	for m in names:
+		var btn := $Right/V/ModeRow.get_node_or_null(names[m]) as Button
+		if btn:
+			var sel: bool = (m == mode_val)
+			btn.button_pressed = sel
+			_apply_sel_style(btn, sel)
+
+
+func _highlight_fun(on: bool) -> void:
+	var btn := $Right/V/FunRow.get_node_or_null("FunBtn") as Button
+	if btn:
+		btn.button_pressed = on
+		btn.text = "ON" if on else "OFF"
+		_apply_sel_style(btn, on)
 
 
 func _lock_for_joiner() -> void:
