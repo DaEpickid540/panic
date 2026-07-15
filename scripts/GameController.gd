@@ -100,7 +100,10 @@ func _on_hunting_started() -> void:
 		_spawn_pickups()
 		_spawn_horrors()
 		_spawn_lockers()
-		_spawn_objectives()
+		# Fun/endless mode removes the generator escape so the match never "ends"
+		# early — everyone just keeps playing until the round timer runs out.
+		if not GameManager.fun_mode:
+			_spawn_objectives()
 	_scan_timer = SCAN_INTERVAL
 	_obj_shown = -1
 	_active = true
@@ -171,7 +174,9 @@ func _spawn_objectives() -> void:
 
 
 func _on_objectives_done() -> void:
-	# Every generator powered — the hiders escape and win.
+	# Every generator powered — the hiders escape and win. Skipped in fun mode.
+	if GameManager.fun_mode:
+		return
 	GameManager.end_game("escaped")
 
 

@@ -576,6 +576,8 @@ func _refresh_role() -> void:
 		GameManager.Role.HUNTER:
 			if GameManager.game_mode == GameManager.Mode.INFECTION:
 				_role.text = "INFECTED — SPREAD IT"
+			elif GameManager.game_mode == GameManager.Mode.TAG:
+				_role.text = "IT — TAG SOMEONE"
 			else:
 				_role.text = "HUNTER"
 			_minimap.visible       = false   # only ghosts get a minimap now
@@ -595,6 +597,8 @@ func _refresh_role() -> void:
 		GameManager.Role.HUNTED:
 			if GameManager.game_mode == GameManager.Mode.INFECTION:
 				_role.text = "SURVIVOR — DON'T GET TOUCHED"
+			elif GameManager.game_mode == GameManager.Mode.TAG:
+				_role.text = "RUNNER — DON'T GET TAGGED"
 			else:
 				_role.text = "HUNTED — RUN"
 			_minimap.visible       = false
@@ -609,7 +613,12 @@ func _refresh_role() -> void:
 			_stamina_label.visible = true
 			_hp_bar.visible        = true
 			_hp_label.visible      = true
-			_hint.text = "WASD move · Shift sprint · F flashlight · E hide · stand by GENERATORS to escape"
+			if GameManager.fun_mode or GameManager.game_mode == GameManager.Mode.TAG:
+				_hint.text = "WASD move · Shift sprint · F flashlight · E hide · survive till the timer"
+			elif GameManager.game_mode == GameManager.Mode.INFECTION:
+				_hint.text = "WASD move · Shift sprint · F flashlight · E hide · outlast the infection"
+			else:
+				_hint.text = "WASD move · Shift sprint · F flashlight · E hide · stand by GENERATORS to escape"
 
 		GameManager.Role.GHOST:
 			# Ghosts use the same first-person HUD as runners, but the bottom-left
