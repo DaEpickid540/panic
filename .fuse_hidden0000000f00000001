@@ -1,0 +1,15 @@
+[debug] [2026-07-14T19:06:23.176Z] ----------------------------------------------------------------------
+[debug] [2026-07-14T19:06:23.178Z] Command:       /usr/bin/node /sessions/sharp-laughing-einstein/npm-global/bin/firebase login --no-localhost
+[debug] [2026-07-14T19:06:23.178Z] CLI Version:   15.23.0
+[debug] [2026-07-14T19:06:23.178Z] Platform:      linux
+[debug] [2026-07-14T19:06:23.178Z] Node Version:  v22.22.3
+[debug] [2026-07-14T19:06:23.178Z] Detected Agent: unknown
+[debug] [2026-07-14T19:06:23.179Z] Time:          Tue Jul 14 2026 15:06:23 GMT-0400 (Eastern Daylight Time)
+[debug] [2026-07-14T19:06:23.179Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-07-14T19:06:23.188Z] >>> [apiv2][query] GET https://firebase-public.firebaseio.com/cli.json [none]
+[error] 
+[error] Error: Cannot run login in non-interactive mode. See login:ci to generate a token for use in non-interactive environments.
+[debug] [2026-07-14T19:06:23.389Z] *** [apiv2] error from fetch(https://firebase-public.firebaseio.com/cli.json, {"headers":{},"method":"GET","dispatcher":{"_events":{},"_eventsCount":0}}): Error: Request was cancelled.
+[warn] ⚠  Unable to fetch the CLI MOTD and remote config. This is not a fatal error, but may indicate an issue with your network connection. 
+[debug] [2026-07-14T19:06:23.390Z] Failed to fetch MOTD FirebaseError: Failed to make request to https://firebase-public.firebaseio.com/cli.json

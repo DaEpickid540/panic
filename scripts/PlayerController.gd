@@ -1012,3 +1012,77 @@ func take_damage(amount: int = 1, by_peer_id: int = -1, hit_type: String = "mele
 	if hp <= 0:
 		if _hit_by_melee and _hit_by_throw:
 			GameManager.capture_player(peer_id, by_peer_id)
+		else:
+			hp = 1
+			if is_local:
+				var ui := get_tree().get_first_node_in_group("hunting_ui")
+				if ui and ui.has_method("show_pickup_effect"):
+					var need := "THROW" if _hit_by_melee else "MELEE"
+					ui.show_pickup_effect("NEED %s HIT TO FINISH" % need, false)
+	if hp > 0 and is_local:
+		_slow_debuff_timer = maxf(_slow_debuff_timer, 0.5)
+		var ui := get_tree().get_first_node_in_group("hunting_ui")
+		if ui and ui.has_method("flash_damage"):
+			ui.flash_damage(hp)
+
+
+## Movement penalty from injury — progressive cripple across 5 HP.
+func _cripple_mult() -> float:
+	match hp:
+		4: return 0.92
+		3: return 0.82
+		2: return 0.68
+		1: return 0.52
+		_: return 1.0
+
+
+## Generator repair speed penalty from injury.
+func repair_mult() -> float:
+	match hp:
+		4: return 0.90
+		3: return 0.75
+		2: return 0.50
+		1: return 0.30
+		_: return 1.0
+
+
+## Freeze the runner in place (ghost lightning grief).
+func apply_stun(duration: float) -> void:
+	if role != GameManager.Role.HUNTED:
+		return
+	_stun_timer = maxf(_stun_timer, duration)
+
+
+var _current_interactable: Node = null
+
+func _try_interact() -> void:
+	var ui := get_tree().get_first_node_in_group("hunting_ui")
+	if _current_interactable != null:
+		_current_interactable.close()
+		_current_interactable = null
+		if ui and ui.has_method("hide_interact_doc"):
+			ui.hide_interact_doc()
+		return
+	var best: Node = null
+	var best_dist := 999.0
+	for n in get_tree().get_nodes_in_group("interactable"):
+		if not is_instance_valid(n):
+			continue
+		var d := global_position.distance_to(n.global_position)
+		if d < 3.5 and d < best_dist:
+			best_dist = d
+			best = n
+	if best != null:
+		best.open()
+		_current_interactable = best
+		if ui and ui.has_method("show_interact_doc"):
+			ui.show_interact_doc(best.title, best.body)
+
+
+func _set_ghost_transparency() -> void:
+	var mat := StandardMaterial3D.new()
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.albedo_color = RemotePlayer.id_color(peer_id, 0.4)
+	mat.emission_enabled = true
+	mat.emission = RemotePlayer.id_color(peer_id) * 0.5
+	Avatar.set_material(_mesh, mat)

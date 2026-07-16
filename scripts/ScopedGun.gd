@@ -112,4 +112,9 @@ func _process(delta: float) -> void:
 		queue_free()
 
 
-func _metal
+func _metal(c: Color) -> StandardMaterial3D:
+	var m := StandardMaterial3D.new()
+	m.albedo_color = c
+	m.metallic = 0.7
+	m.roughness = 0.35
+	return m

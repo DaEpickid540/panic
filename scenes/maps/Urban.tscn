@@ -7,4 +7,4 @@ script = ExtResource("1_map")
 style = 0
 ground_color = Color(0.16, 0.22, 0.14, 1)
 obstacle_color = Color(0.2, 0.16, 0.12, 1)
-seed_v
+seed_value = 1001
