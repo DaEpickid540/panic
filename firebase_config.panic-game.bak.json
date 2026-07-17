@@ -1,0 +1,9 @@
+{
+  "apiKey": "AIzaSyDYutt08h7aqLTEi4mlDy3_H0MpOeClY6U",
+  "authDomain": "panic-game.firebaseapp.com",
+  "databaseURL": "https://panic-game-default-rtdb.firebaseio.com",
+  "projectId": "panic-game",
+  "storageBucket": "panic-game.firebasestorage.app",
+  "messagingSenderId": "1093729782574",
+  "appId": "1:1093729782574:web:274073f039c875039788bf"
+}
