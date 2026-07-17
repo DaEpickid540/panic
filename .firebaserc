@@ -1,5 +1,22 @@
 {
   "projects": {
-    "default": "panic-game"
-  }
+    "default": "game-suite-5d189"
+  },
+  "targets": {
+    "game-suite-5d189": {
+      "hosting": {
+        "panic": [
+          "panic-arena"
+        ]
+      }
+    },
+    "panic-game": {
+      "hosting": {
+        "panic": [
+          "panic-game"
+        ]
+      }
+    }
+  },
+  "etags": {}
 }
